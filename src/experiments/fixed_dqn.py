@@ -22,6 +22,7 @@ TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f}"
 
 def get_loaders(
     seq_dataset_path,
+    num_workers=0,
     batch_size=32,
     window_size=5,
     padding_idx=0,
@@ -39,6 +40,7 @@ def get_loaders(
         batch_size=batch_size,
         shuffle=True,
         collate_fn=FixedLengthDatasetCollator(),
+        num_workers=num_workers,
     )
 
     valid_dataset = FixedLengthDatasetTest(
@@ -51,6 +53,7 @@ def get_loaders(
         dataset=valid_dataset,
         batch_size=batch_size,
         collate_fn=FixedLengthDatasetCollator(),
+        num_workers=num_workers,
     )
 
     test_dataset = FixedLengthDatasetTest(
@@ -63,6 +66,7 @@ def get_loaders(
         dataset=test_dataset,
         batch_size=batch_size,
         collate_fn=FixedLengthDatasetCollator(),
+        num_workers=num_workers,
     )
 
     return train_loader, valid_loader, test_loader
@@ -144,7 +148,7 @@ def valid_fn(model, loader, device, items_n):
     return metrics
 
 
-def experiment(n_epochs, device, prepared_data_path, embedding_dim=32, batch_size=256, window_size=5, seed=23):
+def experiment(n_epochs, device, prepared_data_path, num_workers=0, embedding_dim=32, batch_size=256, window_size=5, seed=23):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
     padding_idx = action_n
@@ -159,6 +163,7 @@ def experiment(n_epochs, device, prepared_data_path, embedding_dim=32, batch_siz
         batch_size=batch_size,
         window_size=window_size,
         padding_idx=padding_idx,
+        num_workers=num_workers,
     )
     print("Data is loaded succesfully")
     model = DQN(action_n=action_n, embedding_dim=embedding_dim, seq_size=window_size, padding_idx=padding_idx)
