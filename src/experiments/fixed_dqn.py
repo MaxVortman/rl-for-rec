@@ -131,6 +131,7 @@ def valid_fn(model, loader, device, items_n, padding_idx):
                 items_n=items_n,
                 k=10,
                 padding_idx=padding_idx,
+                device=device,
             )
             metrics["NDCG@50"] += ndcg(
                 true=te,
@@ -138,6 +139,7 @@ def valid_fn(model, loader, device, items_n, padding_idx):
                 items_n=items_n,
                 k=50,
                 padding_idx=padding_idx,
+                device=device,
             )
             metrics["NDCG@100"] += ndcg(
                 true=te,
@@ -145,6 +147,7 @@ def valid_fn(model, loader, device, items_n, padding_idx):
                 items_n=items_n,
                 k=100,
                 padding_idx=padding_idx,
+                device=device,
             )
 
             progress.set_postfix_str(
@@ -202,14 +205,14 @@ def experiment(
         epoch_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         print(f"[{epoch_start_time}]\n[Epoch {epoch}/{n_epochs}]")
 
-        train_metrics = train_fn(
-            model,
-            train_loader,
-            device,
-            optimizer,
-        )
+        # train_metrics = train_fn(
+        #     model,
+        #     train_loader,
+        #     device,
+        #     optimizer,
+        # )
 
-        log_metrics(train_metrics, "Train")
+        # log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
             model, valid_loader, device, action_n, padding_idx=padding_idx

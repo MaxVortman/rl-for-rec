@@ -3,16 +3,16 @@ from scipy.sparse import csr_matrix
 import torch
 
 
-def ndcg(true, pred, items_n, padding_idx, k=100):
+def ndcg(true, pred, items_n, padding_idx, device, k=100):
     """
     normalized discounted cumulative gain@k for binary relevance
     ASSUMPTIONS: all the 0's in true indicate 0 relevance
     """
     pred = pred.detach().cpu().numpy()
     batch_size = pred.shape[0]
-    true_full = torch.zeros(size=(batch_size, items_n + 1))  # + padding index
+    true_full = torch.zeros(size=(batch_size, items_n + 1), device=device)  # + padding index
     true_full = (
-        true_full.scatter_(1, true, torch.ones_like(true, dtype=true_full.dtype))
+        true_full.scatter_(1, true, torch.ones_like(true, dtype=true_full.dtype, device=device))
         .detach()
         .cpu()
         .numpy()
