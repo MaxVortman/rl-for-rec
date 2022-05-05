@@ -33,7 +33,9 @@ def get_loaders(
     train_sequences = seq_dataset["train"]
     rewards = [[1 for _ in s] for s in train_sequences]
     train_dataset = FixedLengthDatasetTrain(
-        sequences=train_sequences, rewards=rewards, window_size=window_size,
+        sequences=train_sequences,
+        rewards=rewards,
+        window_size=window_size,
     )
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -47,7 +49,7 @@ def get_loaders(
         sequences_tr=seq_dataset["validation_tr"],
         sequences_te=seq_dataset["validation_te"],
         window_size=window_size,
-        padding_idx=padding_idx
+        padding_idx=padding_idx,
     )
     valid_loader = DataLoader(
         dataset=valid_dataset,
@@ -60,7 +62,7 @@ def get_loaders(
         sequences_tr=seq_dataset["test_tr"],
         sequences_te=seq_dataset["test_te"],
         window_size=window_size,
-        padding_idx=padding_idx
+        padding_idx=padding_idx,
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -109,7 +111,7 @@ def train_fn(
 
 
 @torch.no_grad()
-def valid_fn(model, loader, device, items_n):
+def valid_fn(model, loader, device, items_n, padding_idx):
     model.eval()
 
     metrics = {
@@ -124,13 +126,25 @@ def valid_fn(model, loader, device, items_n):
             state, te = t2d(batch, device)
 
             metrics["NDCG@10"] += ndcg(
-                true=te, pred=direct_predict(model, state, 10), items_n=items_n, k=10
+                true=te,
+                pred=direct_predict(model, state, 10),
+                items_n=items_n,
+                k=10,
+                padding_idx=padding_idx,
             )
             metrics["NDCG@50"] += ndcg(
-                true=te, pred=direct_predict(model, state, 50), items_n=items_n, k=50
+                true=te,
+                pred=direct_predict(model, state, 50),
+                items_n=items_n,
+                k=50,
+                padding_idx=padding_idx,
             )
             metrics["NDCG@100"] += ndcg(
-                true=te, pred=direct_predict(model, state, 100), items_n=items_n, k=100
+                true=te,
+                pred=direct_predict(model, state, 100),
+                items_n=items_n,
+                k=100,
+                padding_idx=padding_idx,
             )
 
             progress.set_postfix_str(
@@ -148,7 +162,16 @@ def valid_fn(model, loader, device, items_n):
     return metrics
 
 
-def experiment(n_epochs, device, prepared_data_path, num_workers=0, embedding_dim=32, batch_size=256, window_size=5, seed=23):
+def experiment(
+    n_epochs,
+    device,
+    prepared_data_path,
+    num_workers=0,
+    embedding_dim=32,
+    batch_size=256,
+    window_size=5,
+    seed=23,
+):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
     padding_idx = action_n
@@ -165,7 +188,12 @@ def experiment(n_epochs, device, prepared_data_path, num_workers=0, embedding_di
         num_workers=num_workers,
     )
     print("Data is loaded succesfully")
-    model = DQN(action_n=action_n, embedding_dim=embedding_dim, seq_size=window_size, padding_idx=padding_idx)
+    model = DQN(
+        action_n=action_n,
+        embedding_dim=embedding_dim,
+        seq_size=window_size,
+        padding_idx=padding_idx,
+    )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
     print("Training...")
@@ -183,7 +211,9 @@ def experiment(n_epochs, device, prepared_data_path, num_workers=0, embedding_di
 
         log_metrics(train_metrics, "Train")
 
-        valid_metrics = valid_fn(model, valid_loader, device, action_n)
+        valid_metrics = valid_fn(
+            model, valid_loader, device, action_n, padding_idx=padding_idx
+        )
 
         log_metrics(valid_metrics, "Valid")
 
