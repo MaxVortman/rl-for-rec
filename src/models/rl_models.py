@@ -13,7 +13,9 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
 
         self.action_embedding = nn.Embedding(
-            action_n, embedding_dim, padding_idx=padding_idx
+            action_n + 1, # + padding index 
+            embedding_dim, 
+            padding_idx=padding_idx
         )
         self.linears = nn.Sequential(
             nn.Linear(seq_size * embedding_dim, 128),

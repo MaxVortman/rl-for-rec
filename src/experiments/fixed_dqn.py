@@ -152,7 +152,6 @@ def experiment(n_epochs, device, prepared_data_path, num_workers=0, embedding_di
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
     padding_idx = action_n
-    action_n += 1
     print(f"Number of possible actions is {action_n}")
     print(f"Padding index is {padding_idx}")
 
