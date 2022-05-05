@@ -205,14 +205,14 @@ def experiment(
         epoch_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         print(f"[{epoch_start_time}]\n[Epoch {epoch}/{n_epochs}]")
 
-        # train_metrics = train_fn(
-        #     model,
-        #     train_loader,
-        #     device,
-        #     optimizer,
-        # )
+        train_metrics = train_fn(
+            model,
+            train_loader,
+            device,
+            optimizer,
+        )
 
-        # log_metrics(train_metrics, "Train")
+        log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
             model, valid_loader, device, action_n, padding_idx=padding_idx
