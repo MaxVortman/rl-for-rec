@@ -1,4 +1,3 @@
-import pandas as pd
 from datasets import (
     FixedLengthDatasetTrain,
     FixedLengthDatasetTest,
@@ -14,32 +13,23 @@ from training.utils import t2d, seed_all, log_metrics
 from training.predictions import direct_predict
 from models.rl_models import DQN
 import torch.optim as optim
+import pickle
 
 
 VALID_METRICS_TEMPLATE_STR = "NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
 TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f}"
 
 
-def get_sequences(path):
-    data = pd.read_csv(path)
-    grouped_and_sorted = data.groupby("uid").apply(
-        lambda x: list(x.sort_values(by=["date"])["sid"])
-    )
-    sequences = grouped_and_sorted.values
-    return sequences
-
-
 def get_loaders(
-    train_path,
-    valid_tr_path=None,
-    valid_te_path=None,
-    test_tr_path=None,
-    test_te_path=None,
+    seq_dataset_path,
     batch_size=32,
     window_size=5,
     padding_idx=0,
 ):
-    train_sequences = get_sequences(train_path)
+    with open(seq_dataset_path, "rb") as f:
+        seq_dataset = pickle.load(f)
+
+    train_sequences = seq_dataset["train"]
     rewards = [[1 for _ in s] for s in train_sequences]
     train_dataset = FixedLengthDatasetTrain(
         sequences=train_sequences, rewards=rewards, window_size=window_size,
@@ -51,14 +41,9 @@ def get_loaders(
         collate_fn=FixedLengthDatasetCollator(),
     )
 
-    if not valid_tr_path or not valid_te_path:
-        return train_loader
-
-    valid_tr_sequences = get_sequences(valid_tr_path)
-    valid_te_sequences = get_sequences(valid_te_path)
     valid_dataset = FixedLengthDatasetTest(
-        sequences_tr=valid_tr_sequences,
-        sequences_te=valid_te_sequences,
+        sequences_tr=seq_dataset["validation_tr"],
+        sequences_te=seq_dataset["validation_te"],
         window_size=window_size,
         padding_idx=padding_idx
     )
@@ -68,14 +53,9 @@ def get_loaders(
         collate_fn=FixedLengthDatasetCollator(),
     )
 
-    if not test_tr_path or not test_te_path:
-        return train_loader, valid_loader
-
-    test_tr_sequences = get_sequences(test_tr_path)
-    test_te_sequences = get_sequences(test_te_path)
     test_dataset = FixedLengthDatasetTest(
-        sequences_tr=test_tr_sequences,
-        sequences_te=test_te_sequences,
+        sequences_tr=seq_dataset["test_tr"],
+        sequences_te=seq_dataset["test_te"],
         window_size=window_size,
         padding_idx=padding_idx
     )
@@ -174,18 +154,13 @@ def experiment(n_epochs, device, prepared_data_path, embedding_dim=32, batch_siz
 
     print("Experiment has been started")
     seed_all(seed)
-    train_loader, valid_loader = get_loaders(
-        train_path=f"{prepared_data_path}/train.csv",
-        valid_te_path=f"{prepared_data_path}/validation_te.csv",
-        valid_tr_path=f"{prepared_data_path}/validation_tr.csv",
-        # train_path="prepared_data/pipeline_test_data.csv",
-        # valid_te_path="prepared_data/pipeline_test_data.csv",
-        # valid_tr_path="prepared_data/pipeline_test_data.csv",
+    train_loader, valid_loader, test_loader = get_loaders(
+        seq_dataset_path=f"{prepared_data_path}/seq_dataset.pkl",
         batch_size=batch_size,
         window_size=window_size,
         padding_idx=padding_idx,
     )
-    print("Date is loaded succesfully")
+    print("Data is loaded succesfully")
     model = DQN(action_n=action_n, embedding_dim=embedding_dim, seq_size=window_size, padding_idx=padding_idx)
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
