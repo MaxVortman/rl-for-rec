@@ -14,6 +14,7 @@ def ndcg(true, pred, items_n, k=100):
     true_full = (
         true_full.scatter_(1, true, torch.ones_like(true, dtype=true_full.dtype))
         .detach()
+        .cpu()
         .numpy()
     )
     tp = 1.0 / np.log2(np.arange(2, k + 2))
