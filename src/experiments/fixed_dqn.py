@@ -26,7 +26,7 @@ def get_sequences(path):
         lambda x: list(x.sort_values(by=["date"])["sid"])
     )
     sequences = grouped_and_sorted.values
-    return sequences[:10000]
+    return sequences
 
 
 def get_loaders(
@@ -164,13 +164,20 @@ def valid_fn(model, loader, device, items_n):
     return metrics
 
 
-def experiment(n_epochs, device, action_n, padding_idx, batch_size=256, window_size=5, seed=23):
+def experiment(n_epochs, device, prepared_data_path, embedding_dim=32, batch_size=256, window_size=5, seed=23):
+    with open(prepared_data_path + "/unique_sid.txt", "r") as f:
+        action_n = len(f.readlines())
+    padding_idx = action_n
+    action_n += 1
+    print(f"Number of possible actions is {action_n}")
+    print(f"Padding index is {padding_idx}")
+
     print("Experiment has been started")
     seed_all(seed)
     train_loader, valid_loader = get_loaders(
-        train_path="prepared_data/train.csv",
-        valid_te_path="prepared_data/validation_te.csv",
-        valid_tr_path="prepared_data/validation_tr.csv",
+        train_path=f"{prepared_data_path}/train.csv",
+        valid_te_path=f"{prepared_data_path}/validation_te.csv",
+        valid_tr_path=f"{prepared_data_path}/validation_tr.csv",
         # train_path="prepared_data/pipeline_test_data.csv",
         # valid_te_path="prepared_data/pipeline_test_data.csv",
         # valid_tr_path="prepared_data/pipeline_test_data.csv",
@@ -179,7 +186,7 @@ def experiment(n_epochs, device, action_n, padding_idx, batch_size=256, window_s
         padding_idx=padding_idx,
     )
     print("Date is loaded succesfully")
-    model = DQN(action_n=action_n, embedding_dim=32, seq_size=window_size, padding_idx=padding_idx)
+    model = DQN(action_n=action_n, embedding_dim=embedding_dim, seq_size=window_size, padding_idx=padding_idx)
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
     print("Training...")
@@ -203,7 +210,4 @@ def experiment(n_epochs, device, action_n, padding_idx, batch_size=256, window_s
 
 
 if __name__ == "__main__":
-    actions_n = 17769
-    padding_idx = actions_n
-    actions_n += 1
-    experiment(1, "cpu", actions_n, padding_idx)
+    experiment(n_epochs=1, device="cpu", prepared_data_path="prepared_data")
