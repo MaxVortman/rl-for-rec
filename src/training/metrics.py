@@ -37,12 +37,12 @@ def ndcg_lib(ks, true, pred, items_n, padding_idx):
     true_full[:, padding_idx] = 0  # set padding index to 0
 
     ndcgs = (
-                ndcg_at(
-                    ks=torch.tensor(ks, device=pred.device, dtype=torch.int),
-                    scores=pred,
-                    labels=true_full,
-                )
-                .mean(0)
-                .detach()
-            )
+        ndcg_at(
+            ks=torch.tensor(ks, device=pred.device, dtype=torch.int),
+            scores=pred,
+            labels=true_full,
+        )
+        .mean(0)
+        .detach()
+    )
     return [i.item() for i in ndcgs]

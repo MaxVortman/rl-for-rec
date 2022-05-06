@@ -83,6 +83,7 @@ def train_fn(
     gamma=0.9,
     scheduler=None,
     accumulation_steps=1,
+    count_metrics_steps=1,
 ):
     model.train()
 
@@ -103,18 +104,21 @@ def train_fn(
             )
             metrics["loss"] += loss.detach().item()
 
-            prediction = direct_predict(model, state)
-            ndcg10, ndcg50, ndcg100 = ndcg_lib([10, 50, 100], te, prediction, items_n, padding_idx)
-            metrics["NDCG@10"] += ndcg10
-            metrics["NDCG@50"] += ndcg50
-            metrics["NDCG@100"] += ndcg100
+            if (idx + 1) % count_metrics_steps == 0:
+                prediction = direct_predict(model, state)
+                ndcg10, ndcg50, ndcg100 = ndcg_lib(
+                    [10, 50, 100], te, prediction, items_n, padding_idx
+                )
+                metrics["NDCG@10"] = ndcg10
+                metrics["NDCG@50"] = ndcg50
+                metrics["NDCG@100"] = ndcg100
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
-                    metrics["NDCG@10"] / (idx + 1),
-                    metrics["NDCG@50"] / (idx + 1),
-                    metrics["NDCG@100"] / (idx + 1),
+                    metrics["NDCG@10"],
+                    metrics["NDCG@50"],
+                    metrics["NDCG@100"],
                 )
             )
             progress.update(1)
@@ -153,7 +157,9 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
             metrics["loss"] += loss.detach().item()
 
             prediction = direct_predict(model, state)
-            ndcg10, ndcg50, ndcg100 = ndcg_lib([10, 50, 100], te, prediction, items_n, padding_idx)
+            ndcg10, ndcg50, ndcg100 = ndcg_lib(
+                [10, 50, 100], te, prediction, items_n, padding_idx
+            )
             metrics["NDCG@10"] += ndcg10
             metrics["NDCG@50"] += ndcg50
             metrics["NDCG@100"] += ndcg100
@@ -183,6 +189,7 @@ def experiment(
     batch_size=256,
     window_size=5,
     seed=23,
+    count_metrics_steps=1,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -221,6 +228,7 @@ def experiment(
             optimizer,
             items_n=action_n,
             padding_idx=padding_idx,
+            count_metrics_steps=count_metrics_steps,
         )
 
         log_metrics(train_metrics, "Train")
