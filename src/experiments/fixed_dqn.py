@@ -16,8 +16,9 @@ import torch.optim as optim
 import pickle
 
 
-VALID_METRICS_TEMPLATE_STR = "NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
-TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f}"
+METRICS_TEMPLATE_STR = (
+    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
+)
 
 
 def get_loaders(
@@ -31,11 +32,11 @@ def get_loaders(
         seq_dataset = pickle.load(f)
 
     train_sequences = seq_dataset["train"]
-    rewards = [[1 for _ in s] for s in train_sequences]
     train_dataset = FixedLengthDatasetTrain(
         sequences=train_sequences,
-        rewards=rewards,
+        rewards=[[1 for _ in s] for s in train_sequences],
         window_size=window_size,
+        padding_idx=padding_idx,
     )
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -48,6 +49,7 @@ def get_loaders(
     valid_dataset = FixedLengthDatasetTest(
         sequences_tr=seq_dataset["validation_tr"],
         sequences_te=seq_dataset["validation_te"],
+        rewards=[1] * len(seq_dataset["validation_tr"]),
         window_size=window_size,
         padding_idx=padding_idx,
     )
@@ -61,6 +63,7 @@ def get_loaders(
     test_dataset = FixedLengthDatasetTest(
         sequences_tr=seq_dataset["test_tr"],
         sequences_te=seq_dataset["test_te"],
+        rewards=[1] * len(seq_dataset["test_tr"]),
         window_size=window_size,
         padding_idx=padding_idx,
     )
@@ -75,55 +78,34 @@ def get_loaders(
 
 
 def train_fn(
-    model, loader, device, optimizer, gamma=0.9, scheduler=None, accumulation_steps=1
+    model,
+    loader,
+    device,
+    optimizer,
+    items_n,
+    padding_idx,
+    gamma=0.9,
+    scheduler=None,
+    accumulation_steps=1,
 ):
     model.train()
 
     metrics = {
         "loss": 0.0,
-    }
-    n_batches = len(loader)
-
-    with tqdm(total=n_batches, desc="train") as progress:
-        for idx, batch in enumerate(loader):
-            batch = t2d(batch, device)
-            optimizer.zero_grad()
-            loss = compute_td_loss(model, batch, gamma)
-            metrics["loss"] += loss.detach().item()
-
-            progress.set_postfix_str(
-                TRAIN_METRICS_TEMPLATE_STR.format(
-                    metrics["loss"] / (idx + 1),
-                )
-            )
-            progress.update(1)
-
-            loss.backward()
-            if (idx + 1) % accumulation_steps == 0:
-                optimizer.step()
-                if scheduler is not None:
-                    scheduler.step()
-
-    for k in metrics.keys():
-        metrics[k] /= n_batches
-
-    return metrics
-
-
-@torch.no_grad()
-def valid_fn(model, loader, device, items_n, padding_idx):
-    model.eval()
-
-    metrics = {
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
     }
     n_batches = len(loader)
 
-    with tqdm(total=n_batches, desc="valid") as progress:
+    with tqdm(total=n_batches, desc="train") as progress:
         for idx, batch in enumerate(loader):
-            state, te = t2d(batch, device)
+            state, action, reward, next_state, done, te = t2d(batch, device)
+            optimizer.zero_grad()
+            loss = compute_td_loss(
+                model, state, action, reward, next_state, done, gamma
+            )
+            metrics["loss"] += loss.detach().item()
 
             metrics["NDCG@10"] += ndcg(
                 true=te,
@@ -151,7 +133,76 @@ def valid_fn(model, loader, device, items_n, padding_idx):
             )
 
             progress.set_postfix_str(
-                VALID_METRICS_TEMPLATE_STR.format(
+                METRICS_TEMPLATE_STR.format(
+                    metrics["loss"] / (idx + 1),
+                    metrics["NDCG@10"] / (idx + 1),
+                    metrics["NDCG@50"] / (idx + 1),
+                    metrics["NDCG@100"] / (idx + 1),
+                )
+            )
+            progress.update(1)
+
+            loss.backward()
+            if (idx + 1) % accumulation_steps == 0:
+                optimizer.step()
+                if scheduler is not None:
+                    scheduler.step()
+
+    for k in metrics.keys():
+        metrics[k] /= n_batches
+
+    return metrics
+
+
+@torch.no_grad()
+def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
+    model.eval()
+
+    metrics = {
+        "loss": 0.0,
+        "NDCG@10": 0.0,
+        "NDCG@50": 0.0,
+        "NDCG@100": 0.0,
+    }
+    n_batches = len(loader)
+
+    with tqdm(total=n_batches, desc="valid") as progress:
+        for idx, batch in enumerate(loader):
+            state, action, reward, next_state, done, te = t2d(batch, device)
+
+            loss = compute_td_loss(
+                model, state, action, reward, next_state, done, gamma
+            )
+            metrics["loss"] += loss.detach().item()
+
+            metrics["NDCG@10"] += ndcg(
+                true=te,
+                pred=direct_predict(model, state, 10),
+                items_n=items_n,
+                k=10,
+                padding_idx=padding_idx,
+                device=device,
+            )
+            metrics["NDCG@50"] += ndcg(
+                true=te,
+                pred=direct_predict(model, state, 50),
+                items_n=items_n,
+                k=50,
+                padding_idx=padding_idx,
+                device=device,
+            )
+            metrics["NDCG@100"] += ndcg(
+                true=te,
+                pred=direct_predict(model, state, 100),
+                items_n=items_n,
+                k=100,
+                padding_idx=padding_idx,
+                device=device,
+            )
+
+            progress.set_postfix_str(
+                METRICS_TEMPLATE_STR.format(
+                    metrics["loss"] / (idx + 1),
                     metrics["NDCG@10"] / (idx + 1),
                     metrics["NDCG@50"] / (idx + 1),
                     metrics["NDCG@100"] / (idx + 1),
@@ -210,6 +261,8 @@ def experiment(
             train_loader,
             device,
             optimizer,
+            items_n=action_n,
+            padding_idx=padding_idx,
         )
 
         log_metrics(train_metrics, "Train")

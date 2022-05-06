@@ -10,9 +10,13 @@ def ndcg(true, pred, items_n, padding_idx, device, k=100):
     """
     pred = pred.detach().cpu().numpy()
     batch_size = pred.shape[0]
-    true_full = torch.zeros(size=(batch_size, items_n + 1), device=device)  # + padding index
+    true_full = torch.zeros(
+        size=(batch_size, items_n + 1), device=device
+    )  # + padding index
     true_full = (
-        true_full.scatter_(1, true, torch.ones_like(true, dtype=true_full.dtype, device=device))
+        true_full.scatter_(
+            1, true, torch.ones_like(true, dtype=true_full.dtype, device=device)
+        )
         .detach()
         .cpu()
         .numpy()

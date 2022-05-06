@@ -52,8 +52,8 @@ def pad_truncate_sequences(
     for idx, row in enumerate(sequences):
         if len(row):
             if padding == "pre":
-                features[idx, -min(max_len, len(row)):] = np.array(row)[-max_len:]
+                features[idx, -min(max_len, len(row)) :] = np.array(row)[-max_len:]
             else:
-                features[idx, :min(max_len, len(row))] = np.array(row)[:max_len]
+                features[idx, : min(max_len, len(row))] = np.array(row)[:max_len]
 
     return features

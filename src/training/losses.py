@@ -1,6 +1,4 @@
-def compute_td_loss(model, batch, gamma):
-    state, action, reward, next_state, done = batch
-
+def compute_td_loss(model, state, action, reward, next_state, done, gamma):
     q_values = model(state)
     next_q_values = model(next_state)
     q_value = q_values.gather(1, action.unsqueeze(1)).squeeze(1)

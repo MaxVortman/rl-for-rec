@@ -11,12 +11,24 @@ class FixedLengthDatasetTrain(Dataset):
         sequences: Sequence[Sequence[int]],
         rewards: Sequence[Sequence[int]],
         window_size: int = 5,
+        padding_idx: int = 0,
     ):
         sequences_fixed = np.concatenate(
             [rolling_window(i, window_size + 1) for i in sequences], 0
         )
         rewards_fixed = np.concatenate(
             [rolling_window(i, window_size + 1) for i in rewards], 0
+        )
+        sequences_te = [
+            s[i : i + window_size]
+            for s in sequences
+            for i in range(window_size, len(s))
+        ]
+        self.y = torch.tensor(
+            pad_truncate_sequences(
+                sequences_te, max_len=window_size, value=padding_idx, padding="post"
+            ),
+            dtype=torch.long,
         )
         sizes = [len(s) for s in sequences]
         sizes_t = torch.tensor(sizes)
@@ -37,7 +49,7 @@ class FixedLengthDatasetTrain(Dataset):
         action = seq[-1]
         reward = reward_seq[-1]
 
-        return state, action, reward, next_state, self.done[index]
+        return state, action, reward, next_state, self.done[index], self.y[index]
 
 
 class FixedLengthDatasetTest(Dataset):
@@ -45,6 +57,7 @@ class FixedLengthDatasetTest(Dataset):
         self,
         sequences_tr: Sequence[Sequence[int]],
         sequences_te: Sequence[Sequence[int]],
+        rewards: Sequence[Sequence[int]],
         window_size: int = 5,
         padding_idx: int = 0,
     ):
@@ -60,12 +73,19 @@ class FixedLengthDatasetTest(Dataset):
             ),
             dtype=torch.long,
         )
+        self.rewards = torch.tensor(rewards, dtype=torch.int)
 
     def __len__(self) -> int:
         return len(self.states)
 
     def __getitem__(self, index: int):
-        return self.states[index], self.y[index]
+        state = self.states[index]
+        te = self.y[index]
+        action = te[0]
+        next_state = torch.cat((state[1:], action.unsqueeze(0)))
+        done = torch.tensor(0)
+
+        return state, action, self.rewards[index], next_state, done, te
 
 
 class FixedLengthDatasetCollator:
