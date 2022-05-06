@@ -1,4 +1,4 @@
-from datasets import (
+from datasets.fixed_datasets import (
     FixedLengthDatasetTrain,
     FixedLengthDatasetTest,
     FixedLengthDatasetCollator,
@@ -11,7 +11,7 @@ from training.losses import compute_td_loss
 from training.metrics import ndcg, ndcg_lib
 from training.utils import t2d, seed_all, log_metrics
 from training.predictions import direct_predict
-from models.dqns import FixedAggsDQN, FixedFlatDQN
+from models.fixed_dqns import FixedAggsDQN, FixedFlatDQN
 import torch.optim as optim
 import pickle
 
