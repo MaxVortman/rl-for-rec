@@ -186,6 +186,7 @@ def experiment(
     prepared_data_path,
     num_workers=0,
     embedding_dim=32,
+    hidden_dim=128,
     batch_size=256,
     window_size=5,
     seed=23,
@@ -212,6 +213,7 @@ def experiment(
         embedding_dim=embedding_dim,
         seq_size=window_size,
         padding_idx=padding_idx,
+        hidden_dim=hidden_dim,
     )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)

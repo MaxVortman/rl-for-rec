@@ -6,8 +6,9 @@ class DQN(nn.Module):
     def __init__(
         self,
         action_n: int,
-        embedding_dim: int,
         seq_size: int,
+        embedding_dim: int = 32,
+        hidden_dim: int = 128,
         padding_idx: int = 0,
     ) -> None:
         super(DQN, self).__init__()
@@ -16,11 +17,11 @@ class DQN(nn.Module):
             action_n + 1, embedding_dim, padding_idx=padding_idx  # + padding index
         )
         self.linears = nn.Sequential(
-            nn.Linear(seq_size * embedding_dim, 128),
+            nn.Linear(seq_size * embedding_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(128, action_n + 1),  # + padding index
+            nn.Linear(hidden_dim, action_n + 1),  # + padding index
         )
         self.padding_idx = padding_idx
 
