@@ -11,7 +11,7 @@ from training.losses import compute_td_loss
 from training.metrics import ndcg, ndcg_lib
 from training.utils import t2d, seed_all, log_metrics
 from training.predictions import direct_predict
-from models.dqns import FixedAggsDQN
+from models.dqns import FixedAggsDQN, FixedFlatDQN
 import torch.optim as optim
 import pickle
 
@@ -214,11 +214,12 @@ def experiment(
         num_workers=num_workers,
     )
     print("Data is loaded succesfully")
-    model = FixedAggsDQN(
+    model = FixedFlatDQN(
         action_n=action_n,
         embedding_dim=embedding_dim,
         padding_idx=padding_idx,
         hidden_dim=hidden_dim,
+        seq_size=window_size,
     )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
