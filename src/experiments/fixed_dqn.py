@@ -11,7 +11,7 @@ from training.losses import compute_td_loss
 from training.metrics import ndcg, ndcg_lib
 from training.utils import t2d, seed_all, log_metrics
 from training.predictions import direct_predict
-from models.rl_models import DQN
+from models.dqns import FixedAggsDQN
 import torch.optim as optim
 import pickle
 
@@ -208,10 +208,9 @@ def experiment(
         num_workers=num_workers,
     )
     print("Data is loaded succesfully")
-    model = DQN(
+    model = FixedAggsDQN(
         action_n=action_n,
         embedding_dim=embedding_dim,
-        seq_size=window_size,
         padding_idx=padding_idx,
         hidden_dim=hidden_dim,
     )
