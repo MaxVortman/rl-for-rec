@@ -31,6 +31,8 @@ def get_loaders(
     with open(seq_dataset_path, "rb") as f:
         seq_dataset = pickle.load(f)
 
+    collate_fn = FixedLengthDatasetCollator(padding_idx=padding_idx)
+
     train_sequences = seq_dataset["train"]
     train_dataset = FixedLengthDatasetTrain(
         sequences=train_sequences,
@@ -40,7 +42,7 @@ def get_loaders(
         dataset=train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        collate_fn=FixedLengthDatasetCollator(),
+        collate_fn=collate_fn,
         num_workers=num_workers,
     )
 
@@ -53,7 +55,7 @@ def get_loaders(
     valid_loader = DataLoader(
         dataset=valid_dataset,
         batch_size=batch_size,
-        collate_fn=FixedLengthDatasetCollator(),
+        collate_fn=collate_fn,
         num_workers=num_workers,
     )
 
@@ -66,7 +68,7 @@ def get_loaders(
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=batch_size,
-        collate_fn=FixedLengthDatasetCollator(),
+        collate_fn=collate_fn,
         num_workers=num_workers,
     )
 
