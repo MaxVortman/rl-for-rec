@@ -9,7 +9,7 @@ def rolling_window(a, window):
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
 
 
-def pad_sequences(
+def pad_truncate_sequences(
     sequences: Sequence[Sequence[int]],
     max_len: int,
     value: int = 0,
@@ -52,8 +52,8 @@ def pad_sequences(
     for idx, row in enumerate(sequences):
         if len(row):
             if padding == "pre":
-                features[idx, -len(row) :] = np.array(row)[:max_len]
+                features[idx, -min(max_len, len(row)):] = np.array(row)[-max_len:]
             else:
-                features[idx, : len(row)] = np.array(row)[:max_len]
+                features[idx, :min(max_len, len(row))] = np.array(row)[:max_len]
 
     return features

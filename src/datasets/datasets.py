@@ -2,7 +2,7 @@ from typing import Sequence
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from .utils import rolling_window, pad_sequences
+from .utils import rolling_window, pad_truncate_sequences
 
 
 class FixedLengthDatasetTrain(Dataset):
@@ -49,13 +49,13 @@ class FixedLengthDatasetTest(Dataset):
         padding_idx: int = 0,
     ):
         self.states = torch.tensor(
-            pad_sequences(
+            pad_truncate_sequences(
                 sequences_tr, max_len=window_size, value=padding_idx, padding="pre"
             ),
             dtype=torch.long,
         )
         self.y = torch.tensor(
-            pad_sequences(
+            pad_truncate_sequences(
                 sequences_te, max_len=window_size, value=padding_idx, padding="post"
             ),
             dtype=torch.long,
