@@ -111,7 +111,7 @@ def train_fn(
                 ndcg_at(
                     ks=torch.tensor([10, 50, 100], device=device, dtype=torch.int),
                     scores=prediction,
-                    labels=label,
+                    labels=label.to_dense(),
                 )
                 .mean(0)
                 .detach()
@@ -168,7 +168,7 @@ def valid_fn(model, loader, device, gamma=0.9):
                 ndcg_at(
                     ks=torch.tensor([10, 50, 100], device=device, dtype=torch.int),
                     scores=prediction,
-                    labels=label,
+                    labels=label.to_dense(),
                 )
                 .mean(0)
                 .detach()

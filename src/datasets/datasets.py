@@ -21,10 +21,11 @@ class FixedLengthDatasetTrain(Dataset):
             for s in sequences
             for i in range(window_size, len(s))
         ]
-        labels = torch.zeros(size=(len(sequences_te), items_n + 1))  # + padding index
-        for index, seq_te in enumerate(sequences_te):
-            labels[index, seq_te] = 1
-        self.labels = labels.to_sparse()
+        indexes = np.concatenate([
+            [np.repeat(seq_i, len(sequences_te[seq_i])), sequences_te[seq_i]] for seq_i in range(len(sequences_te))
+        ], axis=1)
+        values = np.ones(shape=(indexes.shape[1],))
+        self.labels = torch.sparse_coo_tensor(indexes, values, (len(sequences_te), items_n + 1))
 
         sizes = [len(s) for s in sequences]
         sizes_t = torch.tensor(sizes)
@@ -67,10 +68,11 @@ class FixedLengthDatasetTest(Dataset):
             ),
             dtype=torch.long,
         )
-        labels = torch.zeros(size=(len(sequences_te), items_n + 1))  # + padding index
-        for index, seq_te in enumerate(sequences_te):
-            labels[index, seq_te] = 1
-        self.labels = labels.to_sparse()
+        indexes = np.concatenate([
+            [np.repeat(seq_i, len(sequences_te[seq_i])), sequences_te[seq_i]] for seq_i in range(len(sequences_te))
+        ], axis=1)
+        values = np.ones(shape=(indexes.shape[1],))
+        self.labels = torch.sparse_coo_tensor(indexes, values, (len(sequences_te), items_n + 1))
         self.sequences_te = sequences_te
 
     def __len__(self) -> int:
