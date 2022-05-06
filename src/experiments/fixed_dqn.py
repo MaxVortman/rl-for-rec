@@ -107,9 +107,11 @@ def train_fn(
             )
             metrics["loss"] += loss.detach().item()
 
+            prediction = direct_predict(model, state)
+
             metrics["NDCG@10"] += ndcg(
                 true=te,
-                pred=direct_predict(model, state, 10),
+                pred=prediction,
                 items_n=items_n,
                 k=10,
                 padding_idx=padding_idx,
@@ -117,7 +119,7 @@ def train_fn(
             ).detach().item()
             metrics["NDCG@50"] += ndcg(
                 true=te,
-                pred=direct_predict(model, state, 50),
+                pred=prediction,
                 items_n=items_n,
                 k=50,
                 padding_idx=padding_idx,
@@ -125,7 +127,7 @@ def train_fn(
             ).detach().item()
             metrics["NDCG@100"] += ndcg(
                 true=te,
-                pred=direct_predict(model, state, 100),
+                pred=prediction,
                 items_n=items_n,
                 k=100,
                 padding_idx=padding_idx,
@@ -175,9 +177,11 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
             )
             metrics["loss"] += loss.detach().item()
 
+            prediction = direct_predict(model, state)
+
             metrics["NDCG@10"] += ndcg(
                 true=te,
-                pred=direct_predict(model, state, 10),
+                pred=prediction,
                 items_n=items_n,
                 k=10,
                 padding_idx=padding_idx,
@@ -185,7 +189,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
             ).detach().item()
             metrics["NDCG@50"] += ndcg(
                 true=te,
-                pred=direct_predict(model, state, 50),
+                pred=prediction,
                 items_n=items_n,
                 k=50,
                 padding_idx=padding_idx,
@@ -193,7 +197,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
             ).detach().item()
             metrics["NDCG@100"] += ndcg(
                 true=te,
-                pred=direct_predict(model, state, 100),
+                pred=prediction,
                 items_n=items_n,
                 k=100,
                 padding_idx=padding_idx,

@@ -8,6 +8,7 @@ def ndcg(true, pred, items_n, padding_idx, device, k=100):
     normalized discounted cumulative gain@k for binary relevance
     ASSUMPTIONS: all the 0's in true indicate 0 relevance
     """
+    pred = torch.topk(pred, k, dim=1).indices
     batch_size = pred.size()[0]
     true_full = torch.zeros(
         size=(batch_size, items_n + 1), device=device
