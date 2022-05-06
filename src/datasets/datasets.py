@@ -9,7 +9,7 @@ class FixedLengthDatasetTrain(Dataset):
     def __init__(
         self,
         sequences: Sequence[Sequence[int]],
-        items_n: int,
+        padding_idx: int = 0,
         window_size: int = 5,
     ):
         sequences_fixed = np.concatenate(
@@ -21,11 +21,12 @@ class FixedLengthDatasetTrain(Dataset):
             for s in sequences
             for i in range(window_size, len(s))
         ]
-        indexes = np.concatenate([
-            [np.repeat(seq_i, len(sequences_te[seq_i])), sequences_te[seq_i]] for seq_i in range(len(sequences_te))
-        ], axis=1)
-        values = np.ones(shape=(indexes.shape[1],))
-        self.labels = torch.sparse_coo_tensor(indexes, values, (len(sequences_te), items_n + 1))
+        self.y = torch.tensor(
+            pad_truncate_sequences(
+                sequences_te, max_len=window_size, value=padding_idx, padding="post"
+            ),
+            dtype=torch.long,
+        )
 
         sizes = [len(s) for s in sequences]
         sizes_t = torch.tensor(sizes)
@@ -49,7 +50,7 @@ class FixedLengthDatasetTrain(Dataset):
             torch.tensor(1),
             next_state,
             self.done[index],
-            self.labels[index],
+            self.y[index],
         )
 
 
@@ -58,7 +59,6 @@ class FixedLengthDatasetTest(Dataset):
         self,
         sequences_tr: Sequence[Sequence[int]],
         sequences_te: Sequence[Sequence[int]],
-        items_n: int,
         window_size: int = 5,
         padding_idx: int = 0,
     ):
@@ -68,11 +68,12 @@ class FixedLengthDatasetTest(Dataset):
             ),
             dtype=torch.long,
         )
-        indexes = np.concatenate([
-            [np.repeat(seq_i, len(sequences_te[seq_i])), sequences_te[seq_i]] for seq_i in range(len(sequences_te))
-        ], axis=1)
-        values = np.ones(shape=(indexes.shape[1],))
-        self.labels = torch.sparse_coo_tensor(indexes, values, (len(sequences_te), items_n + 1))
+        self.y = torch.tensor(
+            pad_truncate_sequences(
+                sequences_te, max_len=window_size, value=padding_idx, padding="post"
+            ),
+            dtype=torch.long,
+        )
         self.sequences_te = sequences_te
 
     def __len__(self) -> int:
@@ -80,12 +81,12 @@ class FixedLengthDatasetTest(Dataset):
 
     def __getitem__(self, index: int):
         state = self.states[index]
-        te = self.sequences_te[index]
-        action = torch.tensor(te[0])
+        te = self.y[index]
+        action = te[0]
         next_state = torch.cat((state[1:], action.unsqueeze(0)))
         done = torch.tensor(0)
 
-        return state, action, torch.tensor(1), next_state, done, self.labels[index]
+        return state, action, torch.tensor(1), next_state, done, te
 
 
 class FixedLengthDatasetCollator:
