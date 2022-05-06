@@ -114,7 +114,7 @@ def train_fn(
                 k=10,
                 padding_idx=padding_idx,
                 device=device,
-            )
+            ).detach().item()
             metrics["NDCG@50"] += ndcg(
                 true=te,
                 pred=direct_predict(model, state, 50),
@@ -122,7 +122,7 @@ def train_fn(
                 k=50,
                 padding_idx=padding_idx,
                 device=device,
-            )
+            ).detach().item()
             metrics["NDCG@100"] += ndcg(
                 true=te,
                 pred=direct_predict(model, state, 100),
@@ -130,7 +130,7 @@ def train_fn(
                 k=100,
                 padding_idx=padding_idx,
                 device=device,
-            )
+            ).detach().item()
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
@@ -182,7 +182,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
                 k=10,
                 padding_idx=padding_idx,
                 device=device,
-            )
+            ).detach().item()
             metrics["NDCG@50"] += ndcg(
                 true=te,
                 pred=direct_predict(model, state, 50),
@@ -190,7 +190,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
                 k=50,
                 padding_idx=padding_idx,
                 device=device,
-            )
+            ).detach().item()
             metrics["NDCG@100"] += ndcg(
                 true=te,
                 pred=direct_predict(model, state, 100),
@@ -198,7 +198,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
                 k=100,
                 padding_idx=padding_idx,
                 device=device,
-            )
+            ).detach().item()
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
