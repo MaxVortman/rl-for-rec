@@ -11,19 +11,20 @@ class FixedLengthDatasetTrain(Dataset):
         sequences: Sequence[Sequence[int]],
         padding_idx: int = 0,
         window_size: int = 5,
+        te_max_len: int = 128,
     ):
         sequences_fixed = np.concatenate(
             [rolling_window(i, window_size + 1) for i in sequences], 0
         )
 
         sequences_te = [
-            s[i : i + window_size]
+            s[i:]
             for s in sequences
             for i in range(window_size, len(s))
         ]
         self.y = torch.tensor(
             pad_truncate_sequences(
-                sequences_te, max_len=window_size, value=padding_idx, padding="post"
+                sequences_te, max_len=te_max_len, value=padding_idx, padding="post"
             ),
             dtype=torch.long,
         )
@@ -61,6 +62,7 @@ class FixedLengthDatasetTest(Dataset):
         sequences_te: Sequence[Sequence[int]],
         window_size: int = 5,
         padding_idx: int = 0,
+        te_max_len: int = 128,
     ):
         self.states = torch.tensor(
             pad_truncate_sequences(
@@ -70,7 +72,7 @@ class FixedLengthDatasetTest(Dataset):
         )
         self.y = torch.tensor(
             pad_truncate_sequences(
-                sequences_te, max_len=window_size, value=padding_idx, padding="post"
+                sequences_te, max_len=te_max_len, value=padding_idx, padding="post"
             ),
             dtype=torch.long,
         )
