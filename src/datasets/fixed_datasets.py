@@ -10,13 +10,14 @@ class FixedLengthDatasetTrain(Dataset):
         self,
         sequences: Sequence[Sequence[int]],
         window_size: int = 5,
+        te_max_len: int = 128,
     ):
         sequences_fixed = np.concatenate(
             [rolling_window(i, window_size + 1) for i in sequences], 0
         )
 
         self.tes = [
-            s[i:]
+            s[i:i + te_max_len]
             for s in sequences
             for i in range(window_size, len(s))
         ]
