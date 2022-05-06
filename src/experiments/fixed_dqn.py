@@ -17,7 +17,7 @@ import pickle
 
 
 METRICS_TEMPLATE_STR = (
-    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
+    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f} NDCG@1000 - {:.3f}"
 )
 
 
@@ -92,6 +92,7 @@ def train_fn(
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
+        "NDCG@1000": 0.0,
     }
     n_batches = len(loader)
 
@@ -106,12 +107,13 @@ def train_fn(
 
             if (idx + 1) % count_metrics_steps == 0:
                 prediction = direct_predict(model, state)
-                ndcg10, ndcg50, ndcg100 = ndcg_lib(
-                    [10, 50, 100], te, prediction, items_n, padding_idx
+                ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
+                    [10, 50, 100, 1000], te, prediction, items_n, padding_idx
                 )
                 metrics["NDCG@10"] = ndcg10
                 metrics["NDCG@50"] = ndcg50
                 metrics["NDCG@100"] = ndcg100
+                metrics["NDCG@1000"] = ndcg1000
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
@@ -119,6 +121,7 @@ def train_fn(
                     metrics["NDCG@10"],
                     metrics["NDCG@50"],
                     metrics["NDCG@100"],
+                    metrics["NDCG@1000"],
                 )
             )
             progress.update(1)
@@ -144,6 +147,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
+        "NDCG@1000": 0.0,
     }
     n_batches = len(loader)
 
@@ -157,12 +161,13 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
             metrics["loss"] += loss.detach().item()
 
             prediction = direct_predict(model, state)
-            ndcg10, ndcg50, ndcg100 = ndcg_lib(
-                [10, 50, 100], te, prediction, items_n, padding_idx
+            ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
+                [10, 50, 100, 1000], te, prediction, items_n, padding_idx
             )
             metrics["NDCG@10"] += ndcg10
             metrics["NDCG@50"] += ndcg50
             metrics["NDCG@100"] += ndcg100
+            metrics["NDCG@1000"] += ndcg1000
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
@@ -170,6 +175,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
                     metrics["NDCG@10"] / (idx + 1),
                     metrics["NDCG@50"] / (idx + 1),
                     metrics["NDCG@100"] / (idx + 1),
+                    metrics["NDCG@1000"] / (idx + 1),
                 )
             )
             progress.update(1)
