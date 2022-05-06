@@ -24,7 +24,7 @@ class FixedLengthDatasetTrain(Dataset):
         labels = torch.zeros(size=(len(sequences_te), items_n + 1))  # + padding index
         for index, seq_te in enumerate(sequences_te):
             labels[index, seq_te] = 1
-        self.labels = labels
+        self.labels = labels.to_sparse()
 
         sizes = [len(s) for s in sequences]
         sizes_t = torch.tensor(sizes)
@@ -70,7 +70,7 @@ class FixedLengthDatasetTest(Dataset):
         labels = torch.zeros(size=(len(sequences_te), items_n + 1))  # + padding index
         for index, seq_te in enumerate(sequences_te):
             labels[index, seq_te] = 1
-        self.labels = labels
+        self.labels = labels.to_sparse()
         self.sequences_te = sequences_te
 
     def __len__(self) -> int:
