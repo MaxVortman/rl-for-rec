@@ -16,8 +16,9 @@ class FixedLengthDatasetTrain(Dataset):
         done = torch.zeros(count_w.sum(0), dtype=torch.int)
         done[cumsum_count_w - 1] = 1
 
-        self.sequences = sequences
+        self.sequences = [torch.tensor(s) for s in sequences]
         self.done = done
+        self.reward = torch.tensor(1)
         self.seq_indexes = torch.cat([torch.repeat_interleave(torch.tensor(i), c) for i, c in enumerate(count_w)], dim=0)
         self.cumsum_count_w = cumsum_count_w
         self.window_size = window_size
@@ -28,12 +29,7 @@ class FixedLengthDatasetTrain(Dataset):
     def __getitem__(self, index: int):
         seq_index = self.seq_indexes[index]
         full_seq = self.sequences[seq_index]
-        # partition_i = self.cumsum_count_w[seq_index] - index - 1
         partition_i = index - (self.cumsum_count_w[seq_index] - len(full_seq) + self.window_size)
-
-        # seq = full_seq[-self.window_size - 1 - partition_i: -partition_i]
-
-        # te = full_seq[-partition_i - 1:]
 
         seq = full_seq[partition_i:partition_i + self.window_size + 1]
 
@@ -44,10 +40,10 @@ class FixedLengthDatasetTrain(Dataset):
         action = seq[-1]
 
         return (
-            torch.tensor(state),
-            torch.tensor(action),
-            torch.tensor(1),
-            torch.tensor(next_state),
+            state,
+            action,
+            self.reward,
+            next_state,
             self.done[index],
             te,
         )
@@ -67,7 +63,9 @@ class FixedLengthDatasetTest(Dataset):
             ),
             dtype=torch.long,
         )
-        self.tes = sequences_te
+        self.tes = [torch.tensor(te) for te in sequences_te]
+        self.reward = torch.tensor(1)
+        self.done = torch.tensor(0)
 
     def __len__(self) -> int:
         return len(self.states)
@@ -75,11 +73,10 @@ class FixedLengthDatasetTest(Dataset):
     def __getitem__(self, index: int):
         state = self.states[index]
         te = self.tes[index]
-        action = torch.tensor(te[0])
+        action = te[0]
         next_state = torch.cat((state[1:], action.unsqueeze(0)))
-        done = torch.tensor(0)
 
-        return state, action, torch.tensor(1), next_state, done, te
+        return state, action, self.reward, next_state, self.done, te
 
 
 class FixedLengthDatasetCollator:
