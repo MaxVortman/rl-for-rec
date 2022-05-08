@@ -10,7 +10,7 @@ from training.progressbar import tqdm
 from training.losses import compute_td_loss
 from training.metrics import ndcg, ndcg_lib
 from training.utils import t2d, seed_all, log_metrics
-from training.predictions import direct_predict
+from training.predictions import direct_predict, prepare_true_matrix
 from models.fixed_dqns import FixedAggsDQN, FixedFlatDQN
 import torch.optim as optim
 import pickle
@@ -32,7 +32,7 @@ def get_loaders(
     with open(seq_dataset_path, "rb") as f:
         seq_dataset = pickle.load(f)
 
-    collate_fn = FixedLengthDatasetCollator(items_n=items_n)
+    collate_fn = FixedLengthDatasetCollator()
 
     train_sequences = seq_dataset["train"]
     train_dataset = FixedLengthDatasetTrain(
@@ -81,6 +81,7 @@ def train_fn(
     loader,
     device,
     optimizer,
+    items_n,
     gamma=0.9,
     scheduler=None,
     accumulation_steps=1,
@@ -99,7 +100,8 @@ def train_fn(
 
     with tqdm(total=n_batches, desc="train") as progress:
         for idx, batch in enumerate(loader):
-            state, action, reward, next_state, done, te = t2d(batch, device)
+            loss_batch, tes = batch
+            state, action, reward, next_state, done = t2d(loss_batch, device)
             optimizer.zero_grad()
             loss = compute_td_loss(
                 model, state, action, reward, next_state, done, gamma
@@ -108,8 +110,9 @@ def train_fn(
 
             if (idx + 1) % count_metrics_steps == 0:
                 prediction = direct_predict(model, state)
+                true = prepare_true_matrix(tes, items_n, device)
                 ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
-                    [10, 50, 100, 1000], te, prediction
+                    [10, 50, 100, 1000], true, prediction
                 )
                 metrics["NDCG@10"] = ndcg10
                 metrics["NDCG@50"] = ndcg50
@@ -140,7 +143,7 @@ def train_fn(
 
 
 @torch.no_grad()
-def valid_fn(model, loader, device, gamma=0.9):
+def valid_fn(model, loader, device, items_n, gamma=0.9):
     model.eval()
 
     metrics = {
@@ -154,7 +157,8 @@ def valid_fn(model, loader, device, gamma=0.9):
 
     with tqdm(total=n_batches, desc="valid") as progress:
         for idx, batch in enumerate(loader):
-            state, action, reward, next_state, done, te = t2d(batch, device)
+            loss_batch, tes = batch
+            state, action, reward, next_state, done = t2d(loss_batch, device)
 
             loss = compute_td_loss(
                 model, state, action, reward, next_state, done, gamma
@@ -162,8 +166,9 @@ def valid_fn(model, loader, device, gamma=0.9):
             metrics["loss"] += loss.detach().item()
 
             prediction = direct_predict(model, state)
+            true = prepare_true_matrix(tes, items_n, device)
             ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
-                [10, 50, 100, 1000], te, prediction
+                [10, 50, 100, 1000], true, prediction
             )
             metrics["NDCG@10"] += ndcg10
             metrics["NDCG@50"] += ndcg50
@@ -238,6 +243,7 @@ def experiment(
             device,
             optimizer,
             count_metrics_steps=count_metrics_steps,
+            items_n=action_n,
         )
 
         log_metrics(train_metrics, "Train")
@@ -246,6 +252,7 @@ def experiment(
             model,
             valid_loader,
             device,
+            items_n=action_n,
         )
 
         log_metrics(valid_metrics, "Valid")
