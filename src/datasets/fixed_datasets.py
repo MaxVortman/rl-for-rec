@@ -24,12 +24,12 @@ class FixedLengthDatasetTrain(Dataset):
         self.window_size = window_size
 
     def __len__(self) -> int:
-        return len(self.done)
+        return self.done.size(0)
 
     def __getitem__(self, index: int):
         seq_index = self.seq_indexes[index]
         full_seq = self.sequences[seq_index]
-        partition_i = index - (self.cumsum_count_w[seq_index] - len(full_seq) + self.window_size)
+        partition_i = index - (self.cumsum_count_w[seq_index] - full_seq.size(0) + self.window_size)
 
         seq = full_seq[partition_i:partition_i + self.window_size + 1]
 
