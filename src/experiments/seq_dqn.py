@@ -29,11 +29,13 @@ def get_loaders(
     with open(seq_dataset_path, "rb") as f:
         seq_dataset = pickle.load(f)
 
-    collate_fn = SeqDatasetCollator(max_tr_size=max_tr_size, padding_idx=padding_idx)
+    collate_fn = SeqDatasetCollator()
 
     train_sequences = seq_dataset["train"]
     train_dataset = SeqDatasetTrain(
         sequences=train_sequences,
+        max_tr_size=max_tr_size,
+        padding_idx=padding_idx,
     )
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -46,6 +48,8 @@ def get_loaders(
     valid_dataset = SeqDatasetTest(
         sequences_tr=seq_dataset["validation_tr"],
         sequences_te=seq_dataset["validation_te"],
+        max_tr_size=max_tr_size,
+        padding_idx=padding_idx,
     )
     valid_loader = DataLoader(
         dataset=valid_dataset,
@@ -57,6 +61,8 @@ def get_loaders(
     test_dataset = SeqDatasetTest(
         sequences_tr=seq_dataset["test_tr"],
         sequences_te=seq_dataset["test_te"],
+        max_tr_size=max_tr_size,
+        padding_idx=padding_idx,
     )
     test_loader = DataLoader(
         dataset=test_dataset,
