@@ -200,6 +200,7 @@ def experiment(
     seed=23,
     count_metrics_steps=1,
     lr=1e-3,
+    max_tr_size=512,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -214,6 +215,7 @@ def experiment(
         batch_size=batch_size,
         padding_idx=padding_idx,
         num_workers=num_workers,
+        max_tr_size=max_tr_size,
     )
     print("Data is loaded succesfully")
     model = SeqDQN(
