@@ -83,25 +83,11 @@ class FixedLengthDatasetTest(Dataset):
 
 
 class FixedLengthDatasetCollator:
-    def __init__(
-        self,
-        items_n: int,
-    ):
-        self.items_n = items_n
-
     def __call__(self, batch):
         if not batch:
             raise ValueError("Batch size should be greater than 0!")
 
         states, actions, rewards, next_states, dones, tes = zip(*batch)
 
-        true_matrix = torch.zeros(
-            size=(len(batch), self.items_n + 1) # + padding index
-        )
-
-        for i, te in enumerate(tes):
-            true_matrix[i, te] = 1
-
-        res_batch = [torch.stack(tensor) for tensor in [states, actions, rewards, next_states, dones]]
-        res_batch.append(true_matrix)
-        return res_batch
+        loss_batch = [torch.stack(tensor) for tensor in [states, actions, rewards, next_states, dones]]
+        return loss_batch, tes
