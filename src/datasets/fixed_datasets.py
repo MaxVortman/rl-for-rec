@@ -16,7 +16,7 @@ class FixedLengthDatasetTrain(Dataset):
         done = torch.zeros(count_w.sum(0), dtype=torch.int)
         done[cumsum_count_w - 1] = 1
 
-        self.sequences = [torch.tensor(s) for s in sequences]
+        self.sequences = sequences
         self.done = done
         self.reward = torch.tensor(1)
         self.seq_indexes = list(np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0))
@@ -41,10 +41,10 @@ class FixedLengthDatasetTrain(Dataset):
         action = seq[-1]
 
         return (
-            state,
-            action,
+            torch.tensor(state),
+            torch.tensor(action),
             self.reward,
-            next_state,
+            torch.tensor(next_state),
             self.done[index],
             te,
         )
