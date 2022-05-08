@@ -11,17 +11,18 @@ class FixedLengthDatasetTrain(Dataset):
         sequences: Sequence[Sequence[int]],
         window_size: int = 5,
     ):
-        count_w = torch.tensor([len(s) for s in sequences]) - window_size
-        cumsum_count_w = torch.cumsum(count_w, dim=0)
+        count_w = np.array([len(s) for s in sequences]) - window_size
+        cumsum_count_w = np.cumsum(count_w, axis=0)
         done = torch.zeros(count_w.sum(0), dtype=torch.int)
         done[cumsum_count_w - 1] = 1
 
         self.sequences = [torch.tensor(s) for s in sequences]
         self.done = done
         self.reward = torch.tensor(1)
-        self.seq_indexes = torch.cat([torch.repeat_interleave(torch.tensor(i), c) for i, c in enumerate(count_w)], dim=0)
-        self.cumsum_count_w = cumsum_count_w
+        self.seq_indexes = list(np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0))
+        self.cumsum_count_w = list(cumsum_count_w)
         self.window_size = window_size
+        self.count_w = list(count_w)
 
     def __len__(self) -> int:
         return self.done.size(0)
@@ -29,7 +30,7 @@ class FixedLengthDatasetTrain(Dataset):
     def __getitem__(self, index: int):
         seq_index = self.seq_indexes[index]
         full_seq = self.sequences[seq_index]
-        partition_i = index - (self.cumsum_count_w[seq_index] - full_seq.size(0) + self.window_size)
+        partition_i = index - (self.cumsum_count_w[seq_index] - self.count_w[seq_index])
 
         seq = full_seq[partition_i:partition_i + self.window_size + 1]
 
