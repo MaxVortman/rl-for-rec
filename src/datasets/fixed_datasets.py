@@ -9,49 +9,47 @@ class FixedLengthDatasetTrain(Dataset):
     def __init__(
         self,
         sequences: Sequence[Sequence[int]],
-        padding_idx: int = 0,
         window_size: int = 5,
-        te_max_len: int = 128,
     ):
-        sequences_fixed = np.concatenate(
-            [rolling_window(i, window_size + 1) for i in sequences], 0
-        )
+        count_w = torch.tensor([len(s) for s in sequences]) - window_size
+        cumsum_count_w = torch.cumsum(count_w, dim=0)
+        done = torch.zeros(count_w.sum(0), dtype=torch.int)
+        done[cumsum_count_w - 1] = 1
 
-        sequences_te = [
-            s[i:]
-            for s in sequences
-            for i in range(window_size, len(s))
-        ]
-        self.y = torch.tensor(
-            pad_truncate_sequences(
-                sequences_te, max_len=te_max_len, value=padding_idx, padding="post"
-            ),
-            dtype=torch.long,
-        )
-
-        sizes = [len(s) for s in sequences]
-        sizes_t = torch.tensor(sizes)
-        done = torch.zeros(len(sequences_fixed), dtype=torch.int)
-        done[torch.cumsum(sizes_t - window_size, dim=0) - 1] = 1
-        self.sequences = torch.tensor(sequences_fixed, dtype=torch.long)
+        self.sequences = sequences
         self.done = done
+        self.seq_indexes = torch.cat([torch.repeat_interleave(torch.tensor(i), c) for i, c in enumerate(count_w)], dim=0)
+        self.cumsum_count_w = cumsum_count_w
+        self.window_size = window_size
 
     def __len__(self) -> int:
-        return len(self.sequences)
+        return len(self.done)
 
     def __getitem__(self, index: int):
-        seq = self.sequences[index]
+        seq_index = self.seq_indexes[index]
+        full_seq = self.sequences[seq_index]
+        # partition_i = self.cumsum_count_w[seq_index] - index - 1
+        partition_i = index - (self.cumsum_count_w[seq_index] - len(full_seq) + self.window_size)
+
+        # seq = full_seq[-self.window_size - 1 - partition_i: -partition_i]
+
+        # te = full_seq[-partition_i - 1:]
+
+        seq = full_seq[partition_i:partition_i + self.window_size + 1]
+
+        te = full_seq[partition_i + self.window_size:]
+
         state = seq[:-1]
         next_state = seq[1:]
         action = seq[-1]
 
         return (
-            state,
-            action,
+            torch.tensor(state),
+            torch.tensor(action),
             torch.tensor(1),
-            next_state,
+            torch.tensor(next_state),
             self.done[index],
-            self.y[index],
+            te,
         )
 
 
@@ -62,7 +60,6 @@ class FixedLengthDatasetTest(Dataset):
         sequences_te: Sequence[Sequence[int]],
         window_size: int = 5,
         padding_idx: int = 0,
-        te_max_len: int = 128,
     ):
         self.states = torch.tensor(
             pad_truncate_sequences(
@@ -70,21 +67,15 @@ class FixedLengthDatasetTest(Dataset):
             ),
             dtype=torch.long,
         )
-        self.y = torch.tensor(
-            pad_truncate_sequences(
-                sequences_te, max_len=te_max_len, value=padding_idx, padding="post"
-            ),
-            dtype=torch.long,
-        )
-        self.sequences_te = sequences_te
+        self.tes = sequences_te
 
     def __len__(self) -> int:
         return len(self.states)
 
     def __getitem__(self, index: int):
         state = self.states[index]
-        te = self.y[index]
-        action = te[0]
+        te = self.tes[index]
+        action = torch.tensor(te[0])
         next_state = torch.cat((state[1:], action.unsqueeze(0)))
         done = torch.tensor(0)
 
@@ -92,10 +83,25 @@ class FixedLengthDatasetTest(Dataset):
 
 
 class FixedLengthDatasetCollator:
+    def __init__(
+        self,
+        items_n: int,
+    ):
+        self.items_n = items_n
+
     def __call__(self, batch):
         if not batch:
             raise ValueError("Batch size should be greater than 0!")
 
-        res_batch = [torch.stack(tensor) for tensor in zip(*batch)]
+        states, actions, rewards, next_states, dones, tes = zip(*batch)
 
+        true_matrix = torch.zeros(
+            size=(len(batch), self.items_n + 1) # + padding index
+        )
+
+        for i, te in enumerate(tes):
+            true_matrix[i, te] = 1
+
+        res_batch = [torch.stack(tensor) for tensor in [states, actions, rewards, next_states, dones]]
+        res_batch.append(true_matrix)
         return res_batch

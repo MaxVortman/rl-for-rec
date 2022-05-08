@@ -23,6 +23,7 @@ METRICS_TEMPLATE_STR = (
 
 def get_loaders(
     seq_dataset_path,
+    items_n,
     num_workers=0,
     batch_size=32,
     window_size=5,
@@ -30,6 +31,8 @@ def get_loaders(
 ):
     with open(seq_dataset_path, "rb") as f:
         seq_dataset = pickle.load(f)
+
+    collate_fn = FixedLengthDatasetCollator(items_n=items_n)
 
     train_sequences = seq_dataset["train"]
     train_dataset = FixedLengthDatasetTrain(
@@ -40,7 +43,7 @@ def get_loaders(
         dataset=train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        collate_fn=FixedLengthDatasetCollator(),
+        collate_fn=collate_fn,
         num_workers=num_workers,
     )
 
@@ -53,7 +56,7 @@ def get_loaders(
     valid_loader = DataLoader(
         dataset=valid_dataset,
         batch_size=batch_size,
-        collate_fn=FixedLengthDatasetCollator(),
+        collate_fn=collate_fn,
         num_workers=num_workers,
     )
 
@@ -66,7 +69,7 @@ def get_loaders(
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=batch_size,
-        collate_fn=FixedLengthDatasetCollator(),
+        collate_fn=collate_fn,
         num_workers=num_workers,
     )
 
@@ -78,8 +81,6 @@ def train_fn(
     loader,
     device,
     optimizer,
-    items_n,
-    padding_idx,
     gamma=0.9,
     scheduler=None,
     accumulation_steps=1,
@@ -108,7 +109,7 @@ def train_fn(
             if (idx + 1) % count_metrics_steps == 0:
                 prediction = direct_predict(model, state)
                 ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
-                    [10, 50, 100, 1000], te, prediction, items_n, padding_idx
+                    [10, 50, 100, 1000], te, prediction
                 )
                 metrics["NDCG@10"] = ndcg10
                 metrics["NDCG@50"] = ndcg50
@@ -139,7 +140,7 @@ def train_fn(
 
 
 @torch.no_grad()
-def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
+def valid_fn(model, loader, device, gamma=0.9):
     model.eval()
 
     metrics = {
@@ -162,7 +163,7 @@ def valid_fn(model, loader, device, items_n, padding_idx, gamma=0.9):
 
             prediction = direct_predict(model, state)
             ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
-                [10, 50, 100, 1000], te, prediction, items_n, padding_idx
+                [10, 50, 100, 1000], te, prediction
             )
             metrics["NDCG@10"] += ndcg10
             metrics["NDCG@50"] += ndcg50
@@ -197,6 +198,7 @@ def experiment(
     window_size=5,
     seed=23,
     count_metrics_steps=1,
+    lr=1e-3,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -212,6 +214,7 @@ def experiment(
         window_size=window_size,
         padding_idx=padding_idx,
         num_workers=num_workers,
+        items_n=action_n,
     )
     print("Data is loaded succesfully")
     model = FixedFlatDQN(
@@ -222,7 +225,7 @@ def experiment(
         seq_size=window_size,
     )
     model.to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=1e-3)
+    optimizer = optim.AdamW(model.parameters(), lr=lr)
     print("Training...")
 
     for epoch in range(1, n_epochs + 1):
@@ -234,8 +237,6 @@ def experiment(
             train_loader,
             device,
             optimizer,
-            items_n=action_n,
-            padding_idx=padding_idx,
             count_metrics_steps=count_metrics_steps,
         )
 
@@ -245,12 +246,10 @@ def experiment(
             model,
             valid_loader,
             device,
-            items_n=action_n,
-            padding_idx=padding_idx,
         )
 
         log_metrics(valid_metrics, "Valid")
 
 
 if __name__ == "__main__":
-    experiment(n_epochs=1, device="cpu", prepared_data_path="prepared_data")
+    experiment(n_epochs=1, device="cpu", prepared_data_path="prepared_data", window_size=4, batch_size=1)

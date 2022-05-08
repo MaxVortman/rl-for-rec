@@ -26,21 +26,12 @@ def ndcg(true, pred, items_n, padding_idx, device, k=100):
     return (DCG / IDCG).mean()
 
 
-def ndcg_lib(ks, true, pred, items_n, padding_idx):
-    batch_size = pred.size()[0]
-    true_full = torch.zeros(
-        size=(batch_size, items_n + 1), device=pred.device
-    )  # + padding index
-    true_full = true_full.scatter_(
-        1, true, torch.ones_like(true, dtype=true_full.dtype, device=pred.device)
-    )
-    true_full[:, padding_idx] = 0  # set padding index to 0
-
+def ndcg_lib(ks, true, pred):
     ndcgs = (
         ndcg_at(
             ks=torch.tensor(ks, device=pred.device, dtype=torch.int),
             scores=pred,
-            labels=true_full,
+            labels=true,
         )
         .mean(0)
         .detach()
