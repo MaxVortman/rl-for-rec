@@ -30,22 +30,21 @@ class FixedLengthDatasetTrain(Dataset):
     def __getitem__(self, index: int):
         seq_index = self.seq_indexes[index]
         full_seq = self.sequences[seq_index]
-        full_seq_t = torch.tensor(full_seq)
         partition_i = index - (self.cumsum_count_w[seq_index] - self.count_w[seq_index])
 
-        seq = full_seq_t[partition_i:partition_i + self.window_size + 1]
+        seq = full_seq[partition_i:partition_i + self.window_size + 1]
 
-        te = full_seq_t[partition_i + self.window_size:]
+        te = full_seq[partition_i + self.window_size:]
 
         state = seq[:-1]
         next_state = seq[1:]
         action = seq[-1]
 
         return (
-            state,
-            action,
+            torch.tensor(state),
+            torch.tensor(action),
             self.reward,
-            next_state,
+            torch.tensor(next_state),
             self.done[index],
             te,
         )
