@@ -19,7 +19,9 @@ class FixedLengthDatasetTrain(Dataset):
         self.sequences = sequences
         self.done = done
         self.reward = torch.tensor(1)
-        self.seq_indexes = list(np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0))
+        self.seq_indexes = list(
+            np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0)
+        )
         self.cumsum_count_w = list(cumsum_count_w)
         self.window_size = window_size
         self.count_w = list(count_w)
@@ -32,9 +34,9 @@ class FixedLengthDatasetTrain(Dataset):
         full_seq = self.sequences[seq_index]
         partition_i = index - (self.cumsum_count_w[seq_index] - self.count_w[seq_index])
 
-        seq = full_seq[partition_i:partition_i + self.window_size + 1]
+        seq = full_seq[partition_i : partition_i + self.window_size + 1]
 
-        te = full_seq[partition_i + self.window_size:]
+        te = full_seq[partition_i + self.window_size :]
 
         state = seq[:-1]
         next_state = seq[1:]
@@ -87,5 +89,8 @@ class FixedLengthDatasetCollator:
 
         states, actions, rewards, next_states, dones, tes = zip(*batch)
 
-        loss_batch = [torch.stack(tensor) for tensor in [states, actions, rewards, next_states, dones]]
+        loss_batch = [
+            torch.stack(tensor)
+            for tensor in [states, actions, rewards, next_states, dones]
+        ]
         return loss_batch, tes

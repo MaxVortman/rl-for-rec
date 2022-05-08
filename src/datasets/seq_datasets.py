@@ -19,7 +19,9 @@ class SeqDatasetTrain(Dataset):
         self.sequences = sequences
         self.done = done
         self.reward = torch.tensor(1)
-        self.seq_indexes = list(np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0))
+        self.seq_indexes = list(
+            np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0)
+        )
         self.cumsum_count_w = list(cumsum_count_w)
         self.min_tr_size = min_tr_size
         self.count_w = list(count_w)
@@ -32,9 +34,9 @@ class SeqDatasetTrain(Dataset):
         full_seq = self.sequences[seq_index]
         partition_i = index - (self.cumsum_count_w[seq_index] - self.count_w[seq_index])
 
-        seq = full_seq[:partition_i + self.min_tr_size + 1]
+        seq = full_seq[: partition_i + self.min_tr_size + 1]
 
-        te = full_seq[partition_i + self.min_tr_size:]
+        te = full_seq[partition_i + self.min_tr_size :]
 
         state = seq[:-1]
         next_state = seq
@@ -97,10 +99,19 @@ class SeqDatasetCollator:
 
         next_states_t = torch.tensor(
             pad_truncate_sequences(
-                next_states, max_len=self.max_tr_size, value=self.padding_idx, padding="pre"
+                next_states,
+                max_len=self.max_tr_size,
+                value=self.padding_idx,
+                padding="pre",
             ),
             dtype=torch.long,
         )
 
-        loss_batch = (states_t, torch.stack(actions), torch.stack(rewards), next_states_t, torch.stack(dones))
+        loss_batch = (
+            states_t,
+            torch.stack(actions),
+            torch.stack(rewards),
+            next_states_t,
+            torch.stack(dones),
+        )
         return loss_batch, tes

@@ -16,9 +16,7 @@ import torch.optim as optim
 import pickle
 
 
-METRICS_TEMPLATE_STR = (
-    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f} NDCG@1000 - {:.3f}"
-)
+METRICS_TEMPLATE_STR = "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f} NDCG@1000 - {:.3f}"
 
 
 def get_loaders(
@@ -247,4 +245,6 @@ def experiment(
 
 
 if __name__ == "__main__":
-    experiment(n_epochs=1, device="cpu", prepared_data_path="prepared_data", batch_size=1)
+    experiment(
+        n_epochs=1, device="cpu", prepared_data_path="prepared_data", batch_size=1
+    )

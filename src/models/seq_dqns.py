@@ -61,9 +61,9 @@ class SeqDQN(nn.Module):
         x_avg = torch.mean(x, 1)  # [B, F]
         x_last = x[:, -1]  # [B, F]
 
-        x = torch.cat([x_max, x_avg, x_last], -1) # [B, 3 * F]
+        x = torch.cat([x_max, x_avg, x_last], -1)  # [B, 3 * F]
         x = x + self.linears_lnorm(self.linears(x))
 
         x = self.head(x)
-        
+
         return x
