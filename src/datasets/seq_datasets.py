@@ -10,7 +10,6 @@ class FixedLengthDatasetTrain(Dataset):
         self,
         sequences: Sequence[Sequence[int]],
         padding_idx: int = 0,
-        te_max_len: int = 128,
         tr_max_len: int = 512,
         test_prop: int = 0.2,
     ):
@@ -22,9 +21,9 @@ class FixedLengthDatasetTrain(Dataset):
             tr_list.append(seq[:-proportion])
             te_list.append(seq[proportion:])
 
-        self.y = torch.tensor(
+        self.trs = torch.tensor(
             pad_truncate_sequences(
-                sequences_te, max_len=te_max_len, value=padding_idx, padding="post"
+                tr_list, max_len=tr_max_len, value=padding_idx, padding="pre"
             ),
             dtype=torch.long,
         )
