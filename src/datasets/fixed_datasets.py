@@ -23,7 +23,7 @@ class FixedLengthDatasetTrain(Dataset):
         self.window_size = window_size
 
     def __len__(self) -> int:
-        return len(self.sequences)
+        return len(self.done)
 
     def __getitem__(self, index: int):
         seq_index = self.seq_indexes[index]
@@ -42,7 +42,7 @@ class FixedLengthDatasetTrain(Dataset):
         state = seq[:-1]
         next_state = seq[1:]
         action = seq[-1]
-        
+
         return (
             torch.tensor(state),
             torch.tensor(action),
