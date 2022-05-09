@@ -115,16 +115,16 @@ def train_fn(
                     ndcg(true, prediction, 50),
                     ndcg(true, prediction, 100),
                 )
-                metrics["NDCG@10"] += ndcg10
-                metrics["NDCG@50"] += ndcg50
-                metrics["NDCG@100"] += ndcg100
+                metrics["NDCG@10"] = ndcg10
+                metrics["NDCG@50"] = ndcg50
+                metrics["NDCG@100"] = ndcg100
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
-                    metrics["NDCG@10"] / (idx + 1),
-                    metrics["NDCG@50"] / (idx + 1),
-                    metrics["NDCG@100"] / (idx + 1),
+                    metrics["NDCG@10"],
+                    metrics["NDCG@50"],
+                    metrics["NDCG@100"],
                 )
             )
             progress.update(1)
