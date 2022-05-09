@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from .utils import EmbeddingDropout
 
 
 class SeqDQN(nn.Module):
@@ -17,6 +18,8 @@ class SeqDQN(nn.Module):
         self.action_embedding = nn.Embedding(
             action_n + 1, embedding_dim, padding_idx=padding_idx  # + padding index
         )
+
+        self.embedding_dropout = EmbeddingDropout(dropout_rate)
 
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
@@ -49,6 +52,7 @@ class SeqDQN(nn.Module):
 
     def forward(self, state):
         x = self.action_embedding(state)  # [B, S] -> [B, S, F]
+        x = self.embedding_dropout(x)
 
         self.lstm.flatten_parameters()
         x, _ = self.lstm(x)  # [B, S, F]

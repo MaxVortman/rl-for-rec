@@ -41,6 +41,7 @@ class SeqDatasetTrain(Dataset):
         seq = full_seq[: partition_i + self.min_tr_size + 1]
         seq_tr = seq[-self.max_tr_size - 1 :]
 
+        tr = seq[:-1]
         te = full_seq[partition_i + self.min_tr_size :]
 
         states_template = torch.full(
@@ -58,6 +59,7 @@ class SeqDatasetTrain(Dataset):
             self.reward,
             next_state,
             self.done[index],
+            tr,
             te,
         )
 
@@ -70,12 +72,13 @@ class SeqDatasetTest(Dataset):
         padding_idx: int = 0,
         max_tr_size: int = 512,
     ):
-        self.sequences_tr = torch.tensor(
+        self.sequences_tr_pad = torch.tensor(
             pad_truncate_sequences(
                 sequences_tr, max_len=max_tr_size, value=padding_idx, padding="pre"
             ),
             dtype=torch.long,
         )
+        self.sequences_tr = sequences_tr
         self.sequences_te = sequences_te
         self.reward = torch.tensor(1)
         self.done = torch.tensor(0)
@@ -84,12 +87,13 @@ class SeqDatasetTest(Dataset):
         return len(self.sequences_tr)
 
     def __getitem__(self, index: int):
-        state = self.sequences_tr[index]
+        state = self.sequences_tr_pad[index]
+        tr = self.sequences_tr[index]
         te = self.sequences_te[index]
         action = torch.tensor(te[0])
         next_state = torch.cat((state[1:], action.unsqueeze(0)))
 
-        return state, action, self.reward, next_state, self.done, te
+        return state, action, self.reward, next_state, self.done, tr, te
 
 
 class SeqDatasetCollator:
@@ -97,7 +101,7 @@ class SeqDatasetCollator:
         if not batch:
             raise ValueError("Batch size should be greater than 0!")
 
-        states, actions, rewards, next_states, dones, tes = zip(*batch)
+        states, actions, rewards, next_states, dones, trs, tes = zip(*batch)
 
         loss_batch = (
             torch.stack(states),
@@ -106,4 +110,4 @@ class SeqDatasetCollator:
             torch.stack(next_states),
             torch.stack(dones),
         )
-        return loss_batch, tes
+        return loss_batch, trs, tes

@@ -8,7 +8,7 @@ import time
 import torch
 from training.progressbar import tqdm
 from training.losses import compute_td_loss
-from training.metrics import ndcg_lib
+from training.metrics import ndcg
 from training.utils import t2d, seed_all, log_metrics
 from training.predictions import direct_predict, prepare_true_matrix
 from models.seq_dqns import SeqDQN
@@ -16,7 +16,9 @@ import torch.optim as optim
 import pickle
 
 
-METRICS_TEMPLATE_STR = "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f} NDCG@1000 - {:.3f}"
+METRICS_TEMPLATE_STR = (
+    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
+)
 
 
 def get_loaders(
@@ -92,13 +94,12 @@ def train_fn(
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
-        "NDCG@1000": 0.0,
     }
     n_batches = len(loader)
 
     with tqdm(total=n_batches, desc="train") as progress:
         for idx, batch in enumerate(loader):
-            loss_batch, tes = batch
+            loss_batch, trs, tes = batch
             state, action, reward, next_state, done = t2d(loss_batch, device)
             optimizer.zero_grad()
             loss = compute_td_loss(
@@ -107,23 +108,23 @@ def train_fn(
             metrics["loss"] += loss.detach().item()
 
             if (idx + 1) % count_metrics_steps == 0:
-                prediction = direct_predict(model, state)
+                prediction = direct_predict(model, state, trs)
                 true = prepare_true_matrix(tes, items_n, device)
-                ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
-                    [10, 50, 100, 1000], true, prediction
+                ndcg10, ndcg50, ndcg100 = (
+                    ndcg(true, prediction, 10),
+                    ndcg(true, prediction, 50),
+                    ndcg(true, prediction, 100),
                 )
-                metrics["NDCG@10"] = ndcg10
-                metrics["NDCG@50"] = ndcg50
-                metrics["NDCG@100"] = ndcg100
-                metrics["NDCG@1000"] = ndcg1000
+                metrics["NDCG@10"] += ndcg10
+                metrics["NDCG@50"] += ndcg50
+                metrics["NDCG@100"] += ndcg100
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
-                    metrics["NDCG@10"],
-                    metrics["NDCG@50"],
-                    metrics["NDCG@100"],
-                    metrics["NDCG@1000"],
+                    metrics["NDCG@10"] / (idx + 1),
+                    metrics["NDCG@50"] / (idx + 1),
+                    metrics["NDCG@100"] / (idx + 1),
                 )
             )
             progress.update(1)
@@ -149,13 +150,12 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
-        "NDCG@1000": 0.0,
     }
     n_batches = len(loader)
 
     with tqdm(total=n_batches, desc="valid") as progress:
         for idx, batch in enumerate(loader):
-            loss_batch, tes = batch
+            loss_batch, trs, tes = batch
             state, action, reward, next_state, done = t2d(loss_batch, device)
 
             loss = compute_td_loss(
@@ -163,15 +163,16 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
             )
             metrics["loss"] += loss.detach().item()
 
-            prediction = direct_predict(model, state)
+            prediction = direct_predict(model, state, trs)
             true = prepare_true_matrix(tes, items_n, device)
-            ndcg10, ndcg50, ndcg100, ndcg1000 = ndcg_lib(
-                [10, 50, 100, 1000], true, prediction
+            ndcg10, ndcg50, ndcg100 = (
+                ndcg(true, prediction, 10),
+                ndcg(true, prediction, 50),
+                ndcg(true, prediction, 100),
             )
             metrics["NDCG@10"] += ndcg10
             metrics["NDCG@50"] += ndcg50
             metrics["NDCG@100"] += ndcg100
-            metrics["NDCG@1000"] += ndcg1000
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
@@ -179,7 +180,6 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
                     metrics["NDCG@10"] / (idx + 1),
                     metrics["NDCG@50"] / (idx + 1),
                     metrics["NDCG@100"] / (idx + 1),
-                    metrics["NDCG@1000"] / (idx + 1),
                 )
             )
             progress.update(1)
@@ -201,6 +201,9 @@ def experiment(
     count_metrics_steps=1,
     lr=1e-3,
     max_tr_size=512,
+    hidden_lstm_size: int = 64,
+    hidden_gru_size: int = 64,
+    dropout_rate: float = 0.1,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -222,6 +225,9 @@ def experiment(
         action_n=action_n,
         embedding_dim=embedding_dim,
         padding_idx=padding_idx,
+        hidden_lstm_size=hidden_lstm_size,
+        hidden_gru_size=hidden_gru_size,
+        dropout_rate=dropout_rate,
     )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)

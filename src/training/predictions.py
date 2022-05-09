@@ -1,9 +1,13 @@
 import torch
 
 
-def direct_predict(model, state):
+def direct_predict(model, state, trs=None):
     output = model(state)
-    output = output.scatter_(1, state, torch.zeros_like(state, dtype=output.dtype))
+    if trs:
+        for i, tr in enumerate(trs):
+            output[i, tr] = 0
+    else:
+        output = output.scatter_(1, state, torch.zeros_like(state, dtype=output.dtype))
 
     return output
 
