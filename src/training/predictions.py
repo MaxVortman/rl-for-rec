@@ -13,11 +13,9 @@ def direct_predict(model, state, trs=None):
 
 
 def prepare_true_matrix(tes, items_n, device):
-    true_matrix = torch.zeros(size=(len(tes), items_n + 1))  # + padding index
+    true_matrix = torch.zeros(size=(len(tes), items_n + 1), device=device)  # + padding index
 
     for i, te in enumerate(tes):
         true_matrix[i, te] = 1
-
-    true_matrix.to(device)
 
     return true_matrix
