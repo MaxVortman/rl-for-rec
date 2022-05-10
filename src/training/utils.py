@@ -66,3 +66,10 @@ def log_metrics(metrics, loader):
         output_line.append(f"{name} - {value:.5f}")
     output_line = f"{loader}: " + ", ".join(output_line)
     print(output_line)
+
+
+def soft_update(target_net, net, soft_tau=1e-2):
+    for target_param, param in zip(target_net.parameters(), net.parameters()):
+        target_param.data.copy_(
+            target_param.data * (1.0 - soft_tau) + param.data * soft_tau
+        )

@@ -6,19 +6,18 @@ from datasets.seq_datasets import (
 from torch.utils.data import DataLoader
 import time
 import torch
+import torch.nn as nn
 from training.progressbar import tqdm
-from training.losses import compute_td_loss
+from training.losses import ddpg_loss
 from training.metrics import ndcg
-from training.utils import t2d, seed_all, log_metrics
+from training.utils import t2d, seed_all, log_metrics, soft_update
 from training.predictions import direct_predict, prepare_true_matrix
-from models.seq_dqns import SeqDQN
+from models.a2c import Actor, Critic
 import torch.optim as optim
 import pickle
 
 
-METRICS_TEMPLATE_STR = (
-    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
-)
+METRICS_TEMPLATE_STR = "policy loss - {:.3f} value loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
 
 
 def get_loaders(
@@ -77,20 +76,29 @@ def get_loaders(
 
 
 def train_fn(
-    model,
+    value_net,
+    policy_net,
+    target_value_net,
+    target_policy_net,
+    value_criterion,
+    policy_optimizer,
+    value_optimizer,
+    min_value,
+    max_value,
+    policy_step,
     loader,
     device,
-    optimizer,
     items_n,
     gamma=0.9,
-    scheduler=None,
-    accumulation_steps=1,
+    soft_tau=1e-2,
     count_metrics_steps=1,
 ):
-    model.train()
+    value_net.train()
+    policy_net.train()
 
     metrics = {
-        "loss": 0.0,
+        "policy loss": 0.0,
+        "value loss": 0.0,
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
@@ -101,14 +109,28 @@ def train_fn(
         for idx, batch in enumerate(loader):
             loss_batch, trs, tes = batch
             state, action, reward, next_state, done = t2d(loss_batch, device)
-            optimizer.zero_grad()
-            loss = compute_td_loss(
-                model, state, action, reward, next_state, done, gamma
+
+            policy_loss, value_loss = ddpg_loss(
+                state,
+                action,
+                reward,
+                next_state,
+                done,
+                value_net,
+                policy_net,
+                target_value_net,
+                target_policy_net,
+                value_criterion,
+                gamma=gamma,
+                min_value=min_value,
+                max_value=max_value,
             )
-            metrics["loss"] += loss.detach().item()
+
+            metrics["policy loss"] += policy_loss.detach().item()
+            metrics["value loss"] += value_loss.detach().item()
 
             if (idx + 1) % count_metrics_steps == 0:
-                prediction = direct_predict(model, state, trs)
+                prediction = direct_predict(target_policy_net, state, trs)
                 true = prepare_true_matrix(tes, items_n, device)
                 ndcg10, ndcg50, ndcg100 = (
                     ndcg(true, prediction, 10),
@@ -121,7 +143,8 @@ def train_fn(
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
-                    metrics["loss"] / (idx + 1),
+                    metrics["policy loss"] / (idx + 1),
+                    metrics["value loss"] / (idx + 1),
                     metrics["NDCG@10"],
                     metrics["NDCG@50"],
                     metrics["NDCG@100"],
@@ -129,11 +152,22 @@ def train_fn(
             )
             progress.update(1)
 
-            loss.backward()
-            if (idx + 1) % accumulation_steps == 0:
-                optimizer.step()
-                if scheduler is not None:
-                    scheduler.step()
+            if (idx + 1) % policy_step == 0:
+                policy_optimizer.zero_grad()
+                policy_loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy_net.parameters(), -1, 1)
+                policy_optimizer.step()
+
+                value_optimizer.zero_grad()
+                value_loss.backward()
+                value_optimizer.step()
+
+                soft_update(target_value_net, value_net, soft_tau)
+                soft_update(target_policy_net, policy_net, soft_tau)
+            else:
+                value_optimizer.zero_grad()
+                value_loss.backward()
+                value_optimizer.step()
 
     for k in metrics.keys():
         metrics[k] /= n_batches
@@ -142,11 +176,25 @@ def train_fn(
 
 
 @torch.no_grad()
-def valid_fn(model, loader, device, items_n, gamma=0.9):
-    model.eval()
+def valid_fn(
+    value_net,
+    policy_net,
+    target_value_net,
+    target_policy_net,
+    value_criterion,
+    min_value,
+    max_value,
+    loader,
+    device,
+    items_n,
+    gamma=0.9,
+):
+    value_net.eval()
+    policy_net.eval()
 
     metrics = {
-        "loss": 0.0,
+        "policy loss": 0.0,
+        "value loss": 0.0,
         "NDCG@10": 0.0,
         "NDCG@50": 0.0,
         "NDCG@100": 0.0,
@@ -158,12 +206,25 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
             loss_batch, trs, tes = batch
             state, action, reward, next_state, done = t2d(loss_batch, device)
 
-            loss = compute_td_loss(
-                model, state, action, reward, next_state, done, gamma
+            policy_loss, value_loss = ddpg_loss(
+                state,
+                action,
+                reward,
+                next_state,
+                done,
+                value_net,
+                policy_net,
+                target_value_net,
+                target_policy_net,
+                value_criterion,
+                gamma=gamma,
+                min_value=min_value,
+                max_value=max_value,
             )
-            metrics["loss"] += loss.detach().item()
 
-            prediction = direct_predict(model, state, trs)
+            metrics["policy loss"] += policy_loss.detach().item()
+            metrics["value loss"] += value_loss.detach().item()
+            prediction = direct_predict(target_policy_net, state, trs)
             true = prepare_true_matrix(tes, items_n, device)
             ndcg10, ndcg50, ndcg100 = (
                 ndcg(true, prediction, 10),
@@ -176,7 +237,8 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
-                    metrics["loss"] / (idx + 1),
+                    metrics["policy loss"] / (idx + 1),
+                    metrics["value loss"] / (idx + 1),
                     metrics["NDCG@10"] / (idx + 1),
                     metrics["NDCG@50"] / (idx + 1),
                     metrics["NDCG@100"] / (idx + 1),
@@ -199,11 +261,12 @@ def experiment(
     batch_size=256,
     seed=23,
     count_metrics_steps=1,
-    lr=1e-3,
+    value_lr=1e-3,
+    policy_lr=1e-4,
     max_tr_size=512,
-    hidden_lstm_size: int = 64,
-    hidden_gru_size: int = 64,
-    dropout_rate: float = 0.1,
+    hidden_lstm_size=64,
+    hidden_gru_size=64,
+    dropout_rate=0.1,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -221,7 +284,7 @@ def experiment(
         max_tr_size=max_tr_size,
     )
     print("Data is loaded succesfully")
-    model = SeqDQN(
+    value_net = Critic(
         action_n=action_n,
         embedding_dim=embedding_dim,
         padding_idx=padding_idx,
@@ -229,8 +292,46 @@ def experiment(
         hidden_gru_size=hidden_gru_size,
         dropout_rate=dropout_rate,
     )
-    model.to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=lr)
+    policy_net = Actor(
+        action_n=action_n,
+        embedding_dim=embedding_dim,
+        padding_idx=padding_idx,
+        hidden_lstm_size=hidden_lstm_size,
+        hidden_gru_size=hidden_gru_size,
+        dropout_rate=dropout_rate,
+    )
+    value_net.to(device)
+    policy_net.to(device)
+
+    target_value_net = Critic(
+        action_n=action_n,
+        embedding_dim=embedding_dim,
+        padding_idx=padding_idx,
+        hidden_lstm_size=hidden_lstm_size,
+        hidden_gru_size=hidden_gru_size,
+        dropout_rate=dropout_rate,
+    )
+    target_policy_net = Actor(
+        action_n=action_n,
+        embedding_dim=embedding_dim,
+        padding_idx=padding_idx,
+        hidden_lstm_size=hidden_lstm_size,
+        hidden_gru_size=hidden_gru_size,
+        dropout_rate=dropout_rate,
+    )
+    target_value_net.to(device)
+    target_policy_net.to(device)
+
+    soft_update(target_value_net, value_net, 1.0)
+    soft_update(target_policy_net, policy_net, 1.0)
+
+    target_policy_net.eval()
+    target_value_net.eval()
+
+    value_optimizer = optim.Adam(value_net.parameters(), lr=value_lr)
+    policy_optimizer = optim.Adam(policy_net.parameters(), lr=policy_lr)
+
+    value_criterion = nn.MSELoss()
     print("Training...")
 
     for epoch in range(1, n_epochs + 1):
@@ -238,10 +339,18 @@ def experiment(
         print(f"[{epoch_start_time}]\n[Epoch {epoch}/{n_epochs}]")
 
         train_metrics = train_fn(
-            model,
-            train_loader,
-            device,
-            optimizer,
+            value_net=value_net,
+            policy_net=policy_net,
+            target_value_net=target_value_net,
+            target_policy_net=target_policy_net,
+            value_criterion=value_criterion,
+            policy_optimizer=policy_optimizer,
+            value_optimizer=value_optimizer,
+            min_value=-10,
+            max_value=10,
+            policy_step=10,
+            loader=train_loader,
+            device=device,
             count_metrics_steps=count_metrics_steps,
             items_n=action_n,
         )
@@ -249,9 +358,15 @@ def experiment(
         log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
-            model,
-            valid_loader,
-            device,
+            value_net=value_net,
+            policy_net=policy_net,
+            target_value_net=target_value_net,
+            target_policy_net=target_policy_net,
+            value_criterion=value_criterion,
+            min_value=-10,
+            max_value=10,
+            loader=valid_loader,
+            device=device,
             items_n=action_n,
         )
 
@@ -260,5 +375,5 @@ def experiment(
 
 if __name__ == "__main__":
     experiment(
-        n_epochs=1, device="cpu", prepared_data_path="prepared_data", batch_size=32
+        n_epochs=1, device="cpu", prepared_data_path="prepared_data", batch_size=256
     )
