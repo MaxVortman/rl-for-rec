@@ -267,6 +267,7 @@ def experiment(
     hidden_lstm_size=64,
     hidden_gru_size=64,
     dropout_rate=0.1,
+    policy_step=10,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -348,7 +349,7 @@ def experiment(
             value_optimizer=value_optimizer,
             min_value=-10,
             max_value=10,
-            policy_step=10,
+            policy_step=policy_step,
             loader=train_loader,
             device=device,
             count_metrics_steps=count_metrics_steps,
