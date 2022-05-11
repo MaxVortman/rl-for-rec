@@ -44,9 +44,9 @@ def ddpg_loss(
 
     action_prob = torch.normal(0, 0.1, size=policy_output.size(), device=policy_output.device)
     for i, a in enumerate(action):
-        action_prob[i, a] = 1
+        action_prob[i, a] += 1
     action_prob = F.softmax(action_prob, dim=1)
-    
+
     value = value_net(state, action_prob)
     value_loss = value_criterion(value, expected_value.detach())
 
