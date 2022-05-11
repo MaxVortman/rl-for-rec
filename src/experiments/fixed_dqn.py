@@ -250,5 +250,5 @@ if __name__ == "__main__":
         device="cpu",
         prepared_data_path="prepared_data",
         window_size=4,
-        batch_size=1,
+        batch_size=4,
     )

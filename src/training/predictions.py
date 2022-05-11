@@ -13,13 +13,13 @@ def direct_predict(model, state, trs=None):
 
 
 def chain_predict(model, state, k, trs=None):
-    prediction = torch.zeros(size=(state.size(0), k), device=state.device, dtype=torch.long)
-    for i in torch.arange(k, device=state.device):
+    actions = list()
+    for _ in range(k):
         output = direct_predict(model, state, trs)
         action = torch.argmax(output, dim=1, keepdim=True)
-        prediction[:, i] = action
+        actions.append(action)
         state = torch.cat([state[:, 1:], action], dim=1)
-
+    prediction = torch.cat(actions, dim=1)
     return prediction
 
 
