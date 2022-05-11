@@ -50,8 +50,9 @@ class Critic(nn.Module):
         x = self.embedding_dropout(x)
 
         x = self.seq_encoder(x)
-
-        x = torch.cat([x, action], 1)
+        
+        logits = torch.log(action)
+        x = torch.cat([x, logits], 1)
         x = self.linears(x)
 
         x = self.head(x)

@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -40,9 +41,12 @@ def ddpg_loss(
     target_value = target_value_net(next_state, target_policy_output.detach())
     expected_value = reward + (1.0 - done) * gamma * target_value
     expected_value = torch.clamp(expected_value, min_value, max_value)
-    action_prob = torch.zeros_like(policy_output)
+
+    action_prob = torch.normal(0, 0.1, size=policy_output.size(), device=policy_output.device)
     for i, a in enumerate(action):
         action_prob[i, a] = 1
+    action_prob = F.softmax(action_prob, dim=1)
+    
     value = value_net(state, action_prob)
     value_loss = value_criterion(value, expected_value.detach())
 
