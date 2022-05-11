@@ -18,6 +18,20 @@ def ndcg(true, pred, k=100):
     return (DCG / IDCG).mean(0).detach().item()
 
 
+def ndcg_chain(true, pred, k=100):
+    """
+    normalized discounted cumulative gain@k for binary relevance
+    ASSUMPTIONS: all the 0's in true indicate 0 relevance
+    """
+    tp = 1.0 / torch.log2(torch.arange(2, k + 2, device=pred.device))
+    DCG = (torch.take_along_dim(true, pred, dim=1) * tp).sum(dim=1)
+    IDCG = torch.tensor(
+        [(tp[: min(int(n), k)]).sum() for n in (true != 0).sum(dim=1)],
+        device=pred.device,
+    )
+    return (DCG / IDCG).mean(0).detach().item()
+
+
 def ndcg_lib(ks, true, pred):
     ndcgs = (
         ndcg_at(
