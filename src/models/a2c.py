@@ -33,18 +33,26 @@ class Critic(nn.Module):
             dropout_rate=dropout_rate,
         )
 
+        self.linears = nn.Sequential(
+            nn.Linear(input_size + action_n + 1, 4 * input_size),
+            nn.GELU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(4 * input_size, input_size),
+        )
+
         self.head = nn.Linear(input_size, 1)
 
         self.head.weight.data.uniform_(-init_w, init_w)
         self.head.bias.data.uniform_(-init_w, init_w)
 
     def forward(self, state, action):
-        x = torch.cat([state, action], 1)
-
-        x = self.action_embedding(x)  # [B, S] -> [B, S, F]
+        x = self.action_embedding(state)  # [B, S] -> [B, S, F]
         x = self.embedding_dropout(x)
 
         x = self.seq_encoder(x)
+
+        x = torch.cat([x, action], 1)
+        x = self.linears(x)
 
         x = self.head(x)
         return x

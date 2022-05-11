@@ -1,4 +1,5 @@
 import torch
+from torch.distributions.categorical import Categorical
 
 
 def direct_predict(model, state, trs=None):
@@ -17,6 +18,31 @@ def chain_predict(model, state, k, trs=None):
     for _ in range(k):
         output = direct_predict(model, state, trs)
         action = torch.argmax(output, dim=1, keepdim=True)
+        actions.append(action)
+        state = torch.cat([state[:, 1:], action], dim=1)
+    prediction = torch.cat(actions, dim=1)
+    return prediction
+
+
+def direct_dist_predict(model, state, trs=None):
+    probs = model(state)
+    if trs:
+        for i, tr in enumerate(trs):
+            probs[i, tr] = 0
+    else:
+        probs = probs.scatter_(1, state, torch.zeros_like(state, dtype=probs.dtype))
+
+    dist = Categorical(probs=probs)
+
+    action = dist.sample()
+
+    return action.view((-1, 1))
+
+
+def chain_dist_predict(model, state, k, trs=None):
+    actions = list()
+    for _ in range(k):
+        action = direct_dist_predict(model, state, trs)
         actions.append(action)
         state = torch.cat([state[:, 1:], action], dim=1)
     prediction = torch.cat(actions, dim=1)

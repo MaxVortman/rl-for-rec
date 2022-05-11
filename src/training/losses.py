@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from .utils import soft_update
 
 
 def compute_td_loss(model, state, action, reward, next_state, done, gamma):
@@ -31,19 +30,20 @@ def ddpg_loss(
     max_value=np.inf,
 ):
     policy_output = policy_net(state)
-    policy_action = torch.argmax(policy_output, keepdim=True, dim=1)
-    policy_loss = value_net(state, policy_action)
+    policy_loss = value_net(state, policy_output)
     policy_loss = -policy_loss.mean()
 
     reward = reward.unsqueeze(1)
     done = done.unsqueeze(1)
 
     target_policy_output = target_policy_net(next_state)
-    next_action = torch.argmax(target_policy_output, keepdim=True, dim=1)
-    target_value = target_value_net(next_state, next_action.detach())
+    target_value = target_value_net(next_state, target_policy_output.detach())
     expected_value = reward + (1.0 - done) * gamma * target_value
     expected_value = torch.clamp(expected_value, min_value, max_value)
-    value = value_net(state, action.unsqueeze(1))
+    action_prob = torch.zeros_like(policy_output)
+    for i, a in enumerate(action):
+        action_prob[i, a] = 1
+    value = value_net(state, action_prob)
     value_loss = value_criterion(value, expected_value.detach())
 
     return policy_loss, value_loss
