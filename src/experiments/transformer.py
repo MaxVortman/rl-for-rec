@@ -3,7 +3,6 @@ from torch.utils.data import DataLoader
 import time
 import torch
 from training.progressbar import tqdm
-from training.losses import compute_td_loss
 from training.metrics import ndcg, ndcg_chain
 from training.utils import t2d, seed_all, log_metrics
 from training.predictions import prepare_true_matrix, direct_predict_transformer, chain_predict_transformer
@@ -235,5 +234,5 @@ def experiment(
 
 if __name__ == "__main__":
     experiment(
-        n_epochs=1, device="cpu", prepared_data_path="prepared_data", batch_size=8, max_size=32
+        n_epochs=1, device="cpu", prepared_data_path="prepared_data", batch_size=1, max_size=8
     )

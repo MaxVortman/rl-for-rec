@@ -141,3 +141,28 @@ def roll_sequences(
                 idx += 1
                 
     return features
+
+
+def slice_sequences(
+    sequences: Sequence[Sequence[int]],
+    max_len: int
+):
+
+    if not max_len > 0:
+        raise ValueError("`max_len` should be greater than 0")
+
+    size = sum([max(len(s) // max_len, 1) for s in sequences])
+
+    features = np.empty(shape=(size,), dtype=object)
+
+    idx = 0
+    for row in sequences:
+        if len(row) <= max_len:
+            features[idx] = row
+            idx += 1
+        else:
+            for i in range(len(row) // max_len):
+                features[idx] = row[i * max_len : (i + 1) * max_len]
+                idx += 1
+                
+    return features

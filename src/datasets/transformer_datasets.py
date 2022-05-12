@@ -1,7 +1,7 @@
 from typing import Sequence
 import torch
 from torch.utils.data import Dataset
-from .utils import pad_roll_sequences, pad_truncate_sequences, roll_sequences
+from .utils import pad_roll_sequences, pad_truncate_sequences, roll_sequences, slice_sequences
 
 
 class TransformerDatasetTrain(Dataset):
@@ -10,7 +10,7 @@ class TransformerDatasetTrain(Dataset):
         sequences: Sequence[Sequence[int]],
         max_size: int = 512,
     ):
-        self.sequences = roll_sequences(sequences, max_size + 1)
+        self.sequences = slice_sequences(sequences, max_size + 1)
         self.max_size = max_size
 
     def __len__(self) -> int:
