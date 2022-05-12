@@ -1,5 +1,6 @@
 import torch
 from torch.distributions.categorical import Categorical
+from models.transformer import create_pad_mask
 
 
 def direct_predict(model, state, trs=None):
@@ -58,3 +59,23 @@ def prepare_true_matrix(tes, items_n, device):
         true_matrix[i, te] = 1
 
     return true_matrix
+
+
+def direct_predict_transformer(model, source, src_mask, padding_idx):
+    pad_mask = create_pad_mask(matrix=source, pad_token=padding_idx)
+    output = model(src=source, src_mask=src_mask, src_key_padding_mask=pad_mask)
+
+    output_last = output[:, :, -1]
+
+    return output_last
+
+
+def chain_predict_transformer(model, source, src_mask, padding_idx, k):
+    actions = list()
+    for _ in range(k):
+        output = direct_predict_transformer(model, source, src_mask, padding_idx)
+        action = torch.argmax(output, dim=1, keepdim=True)
+        actions.append(action)
+        source = torch.cat([source[:, 1:], action], dim=1)
+    prediction = torch.cat(actions, dim=1)
+    return prediction
