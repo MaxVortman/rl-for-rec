@@ -135,7 +135,7 @@ def valid_fn(model, loader, device, items_n, max_size, padding_idx):
     with tqdm(total=n_batches, desc="valid") as progress:
         for idx, batch in enumerate(loader):
             sources, tes = batch
-            sources.to(device)
+            sources = sources.to(device)
 
             direct_prediction = direct_predict_transformer(model, sources, src_mask, padding_idx)
             chain_prediction = chain_predict_transformer(model, sources, src_mask, padding_idx, k=100)
