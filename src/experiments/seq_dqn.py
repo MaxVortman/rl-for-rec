@@ -8,17 +8,15 @@ import time
 import torch
 from training.progressbar import tqdm
 from training.losses import compute_td_loss
-from training.metrics import ndcg
+from training.metrics import ndcg, ndcg_chain
 from training.utils import t2d, seed_all, log_metrics
-from training.predictions import direct_predict, prepare_true_matrix
+from training.predictions import direct_predict, prepare_true_matrix, chain_predict
 from models.seq_dqns import SeqDQN
 import torch.optim as optim
 import pickle
 
 
-METRICS_TEMPLATE_STR = (
-    "loss - {:.3f} NDCG@10 - {:.3f} NDCG@50 - {:.3f} NDCG@100 - {:.3f}"
-)
+METRICS_TEMPLATE_STR = "loss - {:.3f} direct_NDCG@100 - {:.3f} chain_NDCG@100 - {:.3f}"
 
 
 def get_loaders(
@@ -91,9 +89,8 @@ def train_fn(
 
     metrics = {
         "loss": 0.0,
-        "NDCG@10": 0.0,
-        "NDCG@50": 0.0,
-        "NDCG@100": 0.0,
+        "direct_NDCG@100": 0.0,
+        "chain_NDCG@100": 0.0,
     }
     n_batches = len(loader)
 
@@ -108,23 +105,19 @@ def train_fn(
             metrics["loss"] += loss.detach().item()
 
             if (idx + 1) % count_metrics_steps == 0:
-                prediction = direct_predict(model, state, trs)
+                direct_prediction = direct_predict(model, state, trs=trs)
+                chain_prediction = chain_predict(model, state, k=100, trs=trs)
                 true = prepare_true_matrix(tes, items_n, device)
-                ndcg10, ndcg50, ndcg100 = (
-                    ndcg(true, prediction, 10),
-                    ndcg(true, prediction, 50),
-                    ndcg(true, prediction, 100),
-                )
-                metrics["NDCG@10"] = ndcg10
-                metrics["NDCG@50"] = ndcg50
-                metrics["NDCG@100"] = ndcg100
+                direct_ndcg100 = ndcg(true, direct_prediction, k=100)
+                chain_ndcg100 = ndcg_chain(true, chain_prediction, k=100)
+                metrics["direct_NDCG@100"] = direct_ndcg100
+                metrics["chain_NDCG@100"] = chain_ndcg100
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
-                    metrics["NDCG@10"],
-                    metrics["NDCG@50"],
-                    metrics["NDCG@100"],
+                    metrics["direct_NDCG@100"],
+                    metrics["chain_NDCG@100"],
                 )
             )
             progress.update(1)
@@ -147,9 +140,8 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
 
     metrics = {
         "loss": 0.0,
-        "NDCG@10": 0.0,
-        "NDCG@50": 0.0,
-        "NDCG@100": 0.0,
+        "direct_NDCG@100": 0.0,
+        "chain_NDCG@100": 0.0,
     }
     n_batches = len(loader)
 
@@ -163,23 +155,19 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
             )
             metrics["loss"] += loss.detach().item()
 
-            prediction = direct_predict(model, state, trs)
+            direct_prediction = direct_predict(model, state, trs=trs)
+            chain_prediction = chain_predict(model, state, k=100, trs=trs)
             true = prepare_true_matrix(tes, items_n, device)
-            ndcg10, ndcg50, ndcg100 = (
-                ndcg(true, prediction, 10),
-                ndcg(true, prediction, 50),
-                ndcg(true, prediction, 100),
-            )
-            metrics["NDCG@10"] += ndcg10
-            metrics["NDCG@50"] += ndcg50
-            metrics["NDCG@100"] += ndcg100
+            direct_ndcg100 = ndcg(true, direct_prediction, k=100)
+            chain_ndcg100 = ndcg_chain(true, chain_prediction, k=100)
+            metrics["direct_NDCG@100"] += direct_ndcg100
+            metrics["chain_NDCG@100"] += chain_ndcg100
 
             progress.set_postfix_str(
                 METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
-                    metrics["NDCG@10"] / (idx + 1),
-                    metrics["NDCG@50"] / (idx + 1),
-                    metrics["NDCG@100"] / (idx + 1),
+                    metrics["direct_NDCG@100"] / (idx + 1),
+                    metrics["chain_NDCG@100"] / (idx + 1),
                 )
             )
             progress.update(1)
