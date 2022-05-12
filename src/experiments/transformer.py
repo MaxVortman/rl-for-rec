@@ -27,7 +27,7 @@ def get_loaders(
     with open(seq_dataset_path, "rb") as f:
         seq_dataset = pickle.load(f)
 
-    train_sequences = seq_dataset["train"][:1000]
+    train_sequences = seq_dataset["train"]
     train_dataset = TransformerDatasetTrain(
         sequences=train_sequences,
         max_size=max_size,
