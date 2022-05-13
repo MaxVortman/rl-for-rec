@@ -61,19 +61,25 @@ def prepare_true_matrix(tes, items_n, device):
     return true_matrix
 
 
-def direct_predict_transformer(model, source, src_mask, padding_idx):
+def direct_predict_transformer(model, source, src_mask, padding_idx, trs=None):
     pad_mask = create_pad_mask(matrix=source, pad_token=padding_idx)
     output = model(src=source, src_mask=src_mask, src_key_padding_mask=pad_mask)
 
     output_last = output[:, :, -1]
 
+    if trs:
+        for i, tr in enumerate(trs):
+            output_last[i, tr] = 0
+
     return output_last
 
 
-def chain_predict_transformer(model, source, src_mask, padding_idx, k):
+def chain_predict_transformer(model, source, src_mask, padding_idx, k, trs=None):
     actions = list()
     for _ in range(k):
-        output = direct_predict_transformer(model, source, src_mask, padding_idx)
+        output = direct_predict_transformer(
+            model, source, src_mask, padding_idx, trs=trs
+        )
         action = torch.argmax(output, dim=1, keepdim=True)
         actions.append(action)
         source = torch.cat([source[:, 1:], action], dim=1)

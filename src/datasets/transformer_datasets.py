@@ -1,7 +1,10 @@
 from typing import Sequence
 import torch
 from torch.utils.data import Dataset
-from .utils import pad_roll_sequences, pad_truncate_sequences, roll_sequences, slice_sequences
+from .utils import (
+    pad_truncate_sequences,
+    slice_sequences,
+)
 
 
 class TransformerDatasetTrain(Dataset):
@@ -57,7 +60,6 @@ class TransformerDatasetTrainCollator:
     ):
         self.padding_idx = padding_idx
         self.max_size = max_size
-
 
     def __call__(self, batch):
         if not batch:

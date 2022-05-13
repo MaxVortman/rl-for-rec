@@ -113,15 +113,11 @@ def pad_roll_sequences(
             for i in range(len(row) - max_len + 1):
                 features[idx] = np.array(row[i : i + max_len])
                 idx += 1
-                
 
     return features
 
 
-def roll_sequences(
-    sequences: Sequence[Sequence[int]],
-    max_len: int
-):
+def roll_sequences(sequences: Sequence[Sequence[int]], max_len: int):
 
     if not max_len > 0:
         raise ValueError("`max_len` should be greater than 0")
@@ -139,14 +135,11 @@ def roll_sequences(
             for i in range(len(row) - max_len + 1):
                 features[idx] = row[i : i + max_len]
                 idx += 1
-                
+
     return features
 
 
-def slice_sequences(
-    sequences: Sequence[Sequence[int]],
-    max_len: int
-):
+def slice_sequences(sequences: Sequence[Sequence[int]], max_len: int):
 
     if not max_len > 0:
         raise ValueError("`max_len` should be greater than 0")
@@ -164,5 +157,5 @@ def slice_sequences(
             for i in range(len(row) // max_len + (len(row) % max_len >= 5)):
                 features[idx] = row[i * max_len : (i + 1) * max_len]
                 idx += 1
-                
+
     return features

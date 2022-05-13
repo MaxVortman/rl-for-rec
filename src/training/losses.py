@@ -1,11 +1,35 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from models.transformer import create_pad_mask
 
 
 def compute_td_loss(model, state, action, reward, next_state, done, gamma):
     q_values = model(state)
     next_q_values = model(next_state)
+    q_value = q_values.gather(1, action.unsqueeze(1)).squeeze(1)
+    next_q_value = next_q_values.max(1)[0]
+    expected_q_value = reward + gamma * next_q_value * (1 - done)
+
+    loss = (q_value - expected_q_value).pow(2).mean()
+
+    return loss
+
+
+def compute_td_loss_transformer(
+    model, state, action, reward, next_state, done, gamma, src_mask, padding_idx
+):
+    pad_mask = create_pad_mask(matrix=state, pad_token=padding_idx)
+    pad_mask_next = create_pad_mask(matrix=next_state, pad_token=padding_idx)
+
+    output = model(state, src_mask=src_mask, src_key_padding_mask=pad_mask)
+    q_values = output[:, :, -1]
+
+    next_output = model(
+        next_state, src_mask=src_mask, src_key_padding_mask=pad_mask_next
+    )
+    next_q_values = next_output[:, :, -1]
+
     q_value = q_values.gather(1, action.unsqueeze(1)).squeeze(1)
     next_q_value = next_q_values.max(1)[0]
     expected_q_value = reward + gamma * next_q_value * (1 - done)
@@ -42,7 +66,9 @@ def ddpg_loss(
     expected_value = reward + (1.0 - done) * gamma * target_value
     expected_value = torch.clamp(expected_value, min_value, max_value)
 
-    action_prob = torch.normal(0, 0.1, size=policy_output.size(), device=policy_output.device)
+    action_prob = torch.normal(
+        0, 0.1, size=policy_output.size(), device=policy_output.device
+    )
     for i, a in enumerate(action):
         action_prob[i, a] += 1
     action_prob = F.softmax(action_prob, dim=1)
