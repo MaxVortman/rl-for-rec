@@ -26,7 +26,7 @@ import numpy as np
 
 
 TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f}"
-TEST_METRICS_TEMPLATE_STR = "direct_NDCG@100 - {:.3f} chain_NDCG@100 - {:.3f}"
+TEST_METRICS_TEMPLATE_STR = "direct_NDCG@100 - {:.3f}"
 
 
 def get_loaders(
@@ -154,20 +154,14 @@ def valid_fn(model, loader, device, items_n, max_size, padding_idx):
             direct_prediction = direct_predict_transformer(
                 model, sources, src_mask, padding_idx
             )
-            chain_prediction = chain_predict_transformer(
-                model, sources, src_mask, padding_idx, k=100
-            )
 
             true = prepare_true_matrix(tes, items_n, device)
             direct_ndcg100 = ndcg(true, direct_prediction, k=100)
-            chain_ndcg100 = ndcg_chain(true, chain_prediction, k=100)
             metrics["direct_NDCG@100"] += direct_ndcg100
-            metrics["chain_NDCG@100"] += chain_ndcg100
 
             progress.set_postfix_str(
                 TEST_METRICS_TEMPLATE_STR.format(
                     direct_ndcg100,
-                    chain_ndcg100,
                 )
             )
             progress.update(1)
