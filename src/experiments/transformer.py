@@ -140,7 +140,6 @@ def valid_fn(model, loader, device, items_n, max_size, padding_idx):
 
     metrics = {
         "direct_NDCG@100": 0.0,
-        "chain_NDCG@100": 0.0,
     }
     n_batches = len(loader)
 
