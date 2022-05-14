@@ -34,6 +34,7 @@ class TransformerDatasetTest(Dataset):
         max_size: int = 512,
         padding_idx: int = 0,
     ):
+        self.tr_last_ind = torch.tensor([min(len(s), max_size) - 1 for s in sequences_tr])
         self.sequences_tr = torch.tensor(
             pad_truncate_sequences(
                 sequences_tr, max_len=max_size, value=padding_idx, padding="post"
@@ -48,8 +49,9 @@ class TransformerDatasetTest(Dataset):
     def __getitem__(self, index: int):
         source = self.sequences_tr[index]
         te = self.sequences_te[index]
+        tr_last_ind = self.tr_last_ind[index]
 
-        return source, te
+        return source, te, tr_last_ind
 
 
 class TransformerDatasetTrainCollator:
@@ -88,6 +90,6 @@ class TransformerDatasetTestCollator:
     def __call__(self, batch):
         if not batch:
             raise ValueError("Batch size should be greater than 0!")
-        source, te = zip(*batch)
+        source, te, tr_last_ind = zip(*batch)
 
-        return torch.stack(source), te
+        return torch.stack(source), te, torch.stack(tr_last_ind)
