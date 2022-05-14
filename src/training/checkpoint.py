@@ -162,6 +162,7 @@ class CheckpointManager:
         save_n_best=1,
         save_fn=torch.save,
         metrics_file="metrics.json",
+        config_file="config.json",
     ):  # noqa: D107
         self.logdir = logdir
         self.checkpoint_filename = checkpoint_names
@@ -172,6 +173,7 @@ class CheckpointManager:
         self.best_metrics = []
         self.save_fn = save_fn
         self.metrics_file = metrics_file if metrics_file.endswith(".json") else f"{metrics_file}.json"
+        self.config_file = config_file if config_file.endswith(".json") else f"{config_file}.json"
 
     def __repr__(self):  # noqa: D105
         return (
@@ -196,6 +198,13 @@ class CheckpointManager:
         file_path = os.path.join(self.logdir, self.metrics_file)
         with open(file_path, "w") as f:
             json.dump(to_save, f, indent=4)
+
+    def _save_configs(self, configs) -> None:
+        """Store checkpoint information to a file."""
+        
+        file_path = os.path.join(self.logdir, self.config_file)
+        with open(file_path, "w") as f:
+            json.dump(configs, f, indent=4)
 
     def _checkpoint_name(self, epoch) -> str:
         """Get checkpoint file name.
@@ -272,3 +281,5 @@ class CheckpointManager:
 
         # overwrite existing metrics
         self._save_metrics()
+        if "model_configuration" in checkpoint:
+            self._save_configs(checkpoint["model_configuration"])
