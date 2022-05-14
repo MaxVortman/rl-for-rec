@@ -6,7 +6,7 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
-        super().__init__()
+        super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
         position = torch.arange(max_len).unsqueeze(1)
@@ -27,7 +27,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
-class TransformerModel(nn.Module):
+class TransformerEmbedding(nn.Module):
     def __init__(
         self,
         ntoken: int,
@@ -38,8 +38,7 @@ class TransformerModel(nn.Module):
         dropout: float = 0.5,
         padding_idx: int = 0,
     ):
-        super().__init__()
-        self.model_type = "Transformer"
+        super(TransformerEmbedding, self).__init__()
         self.d_model = d_model
 
         self.embedding = nn.Embedding(
@@ -51,15 +50,11 @@ class TransformerModel(nn.Module):
         encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
 
-        self.decoder = nn.Linear(d_model, ntoken + 1)  # + padding_idx
-
         self.init_weights()
 
     def init_weights(self) -> None:
         initrange = 0.1
         self.embedding.weight.data.uniform_(-initrange, initrange)
-        self.decoder.bias.data.zero_()
-        self.decoder.weight.data.uniform_(-initrange, initrange)
 
     def forward(
         self, src: Tensor, src_mask: Tensor, src_key_padding_mask: Tensor
@@ -70,7 +65,7 @@ class TransformerModel(nn.Module):
             src_mask: Tensor, shape [seq_len, seq_len]
 
         Returns:
-            output Tensor of shape [seq_len, batch_size, ntoken]
+            output Tensor of shape [sequence length, batch_size, dim_model]
         """
 
         x = self.embedding(src) * math.sqrt(self.d_model)
@@ -83,7 +78,49 @@ class TransformerModel(nn.Module):
         x = self.transformer_encoder(
             x, mask=src_mask, src_key_padding_mask=src_key_padding_mask
         )  # (sequence length, batch_size, dim_model)
-        x = self.decoder(x)  # (sequence length, batch_size, num_tokens)
+
+        return x
+
+
+class TransformerModel(nn.Module):
+    def __init__(
+        self,
+        ntoken: int,
+        d_model: int,
+        nhead: int,
+        d_hid: int,
+        nlayers: int,
+        dropout: float = 0.5,
+        padding_idx: int = 0,
+    ):
+        super(TransformerModel, self).__init__()
+        self.model_type = "Transformer"
+
+        self.transformer_embedding = TransformerEmbedding(ntoken=ntoken, d_model=d_model, nhead=nhead, d_hid=d_hid, nlayers=nlayers, dropout=dropout, padding_idx=padding_idx)
+
+        self.head = nn.Linear(d_model, ntoken + 1)  # + padding_idx
+
+        self.init_weights()
+
+    def init_weights(self) -> None:
+        initrange = 0.1
+        self.head.bias.data.zero_()
+        self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward(
+        self, src: Tensor, src_mask: Tensor, src_key_padding_mask: Tensor
+    ) -> Tensor:
+        """
+        Args:
+            src: Tensor, shape [batch_size, seq_len]
+            src_mask: Tensor, shape [seq_len, seq_len]
+
+        Returns:
+            output Tensor of shape [batch_size, num_tokens, sequence length]
+        """
+
+        x = self.transformer_embedding(src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask)  # (sequence length, batch_size, dim_model)
+        x = self.head(x)  # (sequence length, batch_size, num_tokens)
 
         # Permute to have batch size first again
         x = x.permute(1, 2, 0)  # (batch_size, num_tokens, sequence length)
