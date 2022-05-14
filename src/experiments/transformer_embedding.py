@@ -7,6 +7,7 @@ import time
 import torch
 from training.progressbar import tqdm
 from training.utils import t2d, seed_all, log_metrics
+from training.checkpoint import CheckpointManager, make_checkpoint
 from models.transformer import (
     TransformerModel,
     generate_square_subsequent_mask,
@@ -150,6 +151,7 @@ def experiment(
     n_epochs,
     device,
     prepared_data_path,
+    logdir,
     num_workers=0,
     batch_size=256,
     seed=23,
@@ -167,24 +169,25 @@ def experiment(
     print(f"Number of possible actions is {action_n}")
     print(f"Padding index is {padding_idx}")
 
+    main_metric = "loss"
 
     checkpointer = CheckpointManager(
         logdir=logdir,
         metric=main_metric,
-        metric_minimization=minimize_metric,
-        save_n_best=3,
+        metric_minimization=True,
+        save_n_best=1,
     )
 
     model_config = {
-        "name": "LSTM_LNORM_GRU_LNORM",
+        "name": "TransformerEmbedding",
         "args": dict(
-            embedding_size=32_000,
-            embedding_dim=256,
-            num_classes=args["num_classes"],
-            hidden_lstm_size=256,
-            hidden_gru_size=256,
-            dropout_rate=0.11,
-            padding_index=3,
+            ntoken=action_n,
+            d_model=d_model,
+            padding_idx=padding_idx,
+            nhead=n_head,
+            nlayers=num_encoder_layers,
+            dropout=dropout_rate,
+            d_hid=d_hid,
         ),
     }
 
@@ -199,18 +202,11 @@ def experiment(
         max_size=max_size,
     )
     print("Data is loaded succesfully")
-    model = TransformerModel(
-        ntoken=action_n,
-        d_model=d_model,
-        padding_idx=padding_idx,
-        nhead=n_head,
-        nlayers=num_encoder_layers,
-        dropout=dropout_rate,
-        d_hid=d_hid,
-    )
+    model = TransformerModel(**model_config["args"])
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     loss_fn = torch.nn.CrossEntropyLoss()
+    scheduler = None
     print("Training...")
 
     for epoch in range(1, n_epochs + 1):
@@ -225,6 +221,7 @@ def experiment(
             loss_fn=loss_fn,
             max_size=max_size,
             padding_idx=padding_idx,
+            scheduler=scheduler,
         )
 
         log_metrics(train_metrics, "Train")
@@ -240,12 +237,27 @@ def experiment(
 
         log_metrics(valid_metrics, "Valid")
 
+        checkpointer.process(
+            score=valid_metrics[main_metric],
+            epoch=epoch,
+            checkpoint=make_checkpoint(
+                epoch,
+                model,
+                optimizer,
+                scheduler,
+                model_configuration=model_config,
+                metrics={"train": train_metrics, "valid": valid_metrics},
+                epoch_start_time=epoch_start_time,
+            ),
+        )
+
 
 if __name__ == "__main__":
     experiment(
         n_epochs=1,
         device="cpu",
         prepared_data_path="prepared_whole_data",
-        batch_size=2,
+        logdir="logs/transformer_embedding",
+        batch_size=512,
         max_size=8,
     )

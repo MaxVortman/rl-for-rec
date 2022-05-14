@@ -6,4 +6,5 @@ __pycache__/
 data/
 prepared_data/
 prepared_whole_data/
+logs/
 .DS_Store
