@@ -61,6 +61,18 @@ def prepare_true_matrix(tes, items_n, device):
     return true_matrix
 
 
+def prepare_true_matrix(tes, rewards, items_n, device):
+    true_matrix = torch.zeros(
+        size=(len(tes), items_n + 1), device=device
+    )  # + padding index
+
+    for i, te in enumerate(tes):
+        for j in range(len(te)):
+            true_matrix[i, te[j]] = rewards[i][j]
+
+    return true_matrix
+
+
 def direct_predict_transformer(model, source, src_mask, padding_idx, trs=None):
     pad_mask = create_pad_mask(matrix=source, pad_token=padding_idx)
     output = model(src=source, src_mask=src_mask, src_key_padding_mask=pad_mask)

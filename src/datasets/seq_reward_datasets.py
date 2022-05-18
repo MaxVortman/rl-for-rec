@@ -13,49 +13,30 @@ class SeqRewardDatasetTrain(Dataset):
         max_size: int = 512,
     ):
         self.sequences = slice_sequences(sequences, max_size + 1)
-
-        count_w = np.array([len(s) for s in sequences]) - min_tr_size
-        cumsum_count_w = np.cumsum(count_w, axis=0)
-        done = torch.zeros(count_w.sum(0), dtype=torch.int)
-        done[cumsum_count_w - 1] = 1
-
-        self.sequences = sequences
-        self.done = done
-        self.reward = torch.tensor(1)
-        self.seq_indexes = list(
-            np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0)
-        )
-        self.cumsum_count_w = list(cumsum_count_w)
-        self.min_tr_size = min_tr_size
-        self.max_tr_size = max_tr_size
-        self.count_w = list(count_w)
+        self.rewards = slice_sequences(rewards, max_size + 1)
+        
+        # last_idx = [len(s) - 1 for s in self.sequences]
+        count = np.array([max(len(s) // (max_size + 1) + (len(s) % max_size >= 4), 1) for s in sequences])
+        self.cumsum_count = set(np.cumsum(count, axis=0))
 
     def __len__(self) -> int:
-        return self.done.size(0)
+        return len(self.sequences)
 
     def __getitem__(self, index: int):
-        seq_index = self.seq_indexes[index]
-        full_seq = self.sequences[seq_index]
-        partition_i = index - (self.cumsum_count_w[seq_index] - self.count_w[seq_index])
-
-        seq = full_seq[: partition_i + self.min_tr_size + 1]
-        seq_tr = seq[-self.max_tr_size - 1 :]
-
-        tr = seq[:-1]
-        te = full_seq[partition_i + self.min_tr_size :]
-
-        state = seq_tr[:-1]
-        next_state = seq_tr[1:]
-        action = seq_tr[-1]
+        seq = self.sequences[index]
+        state = seq[:-1]
+        next_state = seq[1:]
+        reward = self.rewards[index]
+        if index in self.cumsum_count:
+            done = [0] * (len(seq) - 2) + [1]
+        else:
+            done = [0] * (len(seq) - 1)
 
         return (
             state,
-            torch.tensor(action),
-            self.reward,
+            reward,
             next_state,
-            self.done[index],
-            tr,
-            te,
+            done,
         )
 
 
@@ -64,12 +45,15 @@ class SeqRewardDatasetTest(Dataset):
         self,
         sequences_tr: Sequence[Sequence[int]],
         sequences_te: Sequence[Sequence[int]],
-        rewards: Sequence[Sequence[int]],
+        rewards_tr: Sequence[Sequence[int]],
+        rewards_te: Sequence[Sequence[int]],
+        max_size: int = 512,
     ):
         self.sequences_tr = sequences_tr
         self.sequences_te = sequences_te
-        self.reward = torch.tensor(1)
-        self.done = torch.tensor(0)
+        self.rewards_tr = rewards_tr
+        self.rewards_te = rewards_te
+        self.done = torch.zeros(size=(max_size,))
 
     def __len__(self) -> int:
         return len(self.sequences_tr)
@@ -78,13 +62,14 @@ class SeqRewardDatasetTest(Dataset):
         state = self.sequences_tr[index]
         tr = self.sequences_tr[index]
         te = self.sequences_te[index]
-        action = te[0]
-        next_state = state + [action]
+        next_state = state[1:] + [te[0]]
+        reward = self.rewards_tr[index]
+        rewards_te = self.rewards_te[index]
 
-        return state, torch.tensor(action), self.reward, next_state, self.done, tr, te
+        return state, reward, next_state, self.done, tr, te, rewards_te
 
 
-class SeqRewardDatasetCollator:
+class SeqRewardTestDatasetCollator:
     def __init__(
         self,
         max_size: int = 512,
@@ -97,11 +82,18 @@ class SeqRewardDatasetCollator:
         if not batch:
             raise ValueError("Batch size should be greater than 0!")
 
-        states, actions, rewards, next_states, dones, trs, tes = zip(*batch)
+        states, rewards, next_states, dones, trs, tes, rewards_tes = zip(*batch)
 
         states = torch.tensor(
             pad_truncate_sequences(
                 states, max_len=self.max_size, value=self.padding_idx, padding="post"
+            ),
+            dtype=torch.long,
+        )
+
+        rewards = torch.tensor(
+            pad_truncate_sequences(
+                rewards, max_len=self.max_size, value=0, padding="post"
             ),
             dtype=torch.long,
         )
@@ -118,9 +110,66 @@ class SeqRewardDatasetCollator:
 
         loss_batch = (
             states,
-            torch.stack(actions),
-            torch.stack(rewards),
+            rewards,
             next_states,
             torch.stack(dones),
         )
-        return loss_batch, trs, tes
+        return loss_batch, trs, tes, rewards_tes
+
+
+class SeqRewardTrainDatasetCollator:
+    def __init__(
+        self,
+        max_size: int = 512,
+        padding_idx: int = 0,
+    ):
+        self.padding_idx = padding_idx
+        self.max_size = max_size
+
+    def __call__(self, batch):
+        if not batch:
+            raise ValueError("Batch size should be greater than 0!")
+
+        states, rewards, next_states, dones = zip(*batch)
+
+        states = torch.tensor(
+            pad_truncate_sequences(
+                states, max_len=self.max_size, value=self.padding_idx, padding="post"
+            ),
+            dtype=torch.long,
+        )
+
+        rewards = torch.tensor(
+            pad_truncate_sequences(
+                rewards, max_len=self.max_size, value=0, padding="post"
+            ),
+            dtype=torch.long,
+        )
+
+        next_states = torch.tensor(
+            pad_truncate_sequences(
+                next_states,
+                max_len=self.max_size,
+                value=self.padding_idx,
+                padding="post",
+            ),
+            dtype=torch.long,
+        )
+
+        dones = torch.tensor(
+            pad_truncate_sequences(
+                dones,
+                max_len=self.max_size,
+                value=0,
+                padding="post",
+            ),
+            dtype=torch.long,
+        )
+
+        loss_batch = (
+            states,
+            rewards,
+            next_states,
+            dones,
+        )
+        return loss_batch

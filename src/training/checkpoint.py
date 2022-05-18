@@ -78,6 +78,29 @@ def save_checkpoint(
         shutil.copyfile(filename, last_filename)
 
 
+def load_embedding(
+    checkpoint_dir,
+    model_class,
+):
+    config_path = os.path.join(checkpoint_dir, "config.json")
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    model = model_class(**config["args"])
+
+    best_path = os.path.join(checkpoint_dir, "best.pth")
+    best = torch.load(best_path)
+    
+    state_dict = dict()
+    prefix = "transformer_embedding."
+    for key, value in best["model_state_dict"].items():
+        if key.startswith(prefix):
+            state_dict[key[len(prefix):]] = value
+
+    model.load_state_dict(state_dict)
+
+    return model
+
+
 def load_checkpoint(
     checkpoint_file,
     model,
