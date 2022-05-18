@@ -206,12 +206,12 @@ def experiment(
     print(f"Number of possible actions is {action_n}")
     print(f"Padding index is {padding_idx}")
 
-    main_metric = "loss"
+    main_metric = "direct_NDCG@100"
 
     checkpointer = CheckpointManager(
         logdir=logdir,
         metric=main_metric,
-        metric_minimization=True,
+        metric_minimization=False,
         save_n_best=1,
     )
 
@@ -240,17 +240,17 @@ def experiment(
         epoch_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         print(f"[{epoch_start_time}]\n[Epoch {epoch}/{n_epochs}]")
 
-        # train_metrics = train_fn(
-        #     model,
-        #     train_loader,
-        #     device,
-        #     optimizer,
-        #     max_size=max_size,
-        #     padding_idx=padding_idx,
-        #     scheduler=scheduler,
-        # )
+        train_metrics = train_fn(
+            model,
+            train_loader,
+            device,
+            optimizer,
+            max_size=max_size,
+            padding_idx=padding_idx,
+            scheduler=scheduler,
+        )
 
-        # log_metrics(train_metrics, "Train")
+        log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
             model,
@@ -263,18 +263,18 @@ def experiment(
 
         log_metrics(valid_metrics, "Valid")
 
-        # checkpointer.process(
-        #     score=valid_metrics[main_metric],
-        #     epoch=epoch,
-        #     checkpoint=make_checkpoint(
-        #         epoch,
-        #         model,
-        #         optimizer,
-        #         scheduler,
-        #         metrics={"train": train_metrics, "valid": valid_metrics},
-        #         epoch_start_time=epoch_start_time,
-        #     ),
-        # )
+        checkpointer.process(
+            score=valid_metrics[main_metric],
+            epoch=epoch,
+            checkpoint=make_checkpoint(
+                epoch,
+                model,
+                optimizer,
+                scheduler,
+                metrics={"train": train_metrics, "valid": valid_metrics},
+                epoch_start_time=epoch_start_time,
+            ),
+        )
 
 
 if __name__ == "__main__":
