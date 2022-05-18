@@ -225,11 +225,13 @@ def experiment(
         max_size=max_size,
     )
     print("Data is loaded succesfully")
+    transformer_embedding = load_embedding(
+        checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding
+    )
     model = DqnFreezeTransformer(
-        transformer_embedding=load_embedding(
-            checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding
-        ),
+        transformer_embedding=transformer_embedding,
         ntoken=action_n,
+        d_model=transformer_embedding.d_model,
     )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
