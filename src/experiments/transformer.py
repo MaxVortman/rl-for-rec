@@ -88,7 +88,6 @@ def train_fn(
     loader,
     device,
     optimizer,
-    items_n,
     loss_fn,
     max_size,
     padding_idx,
@@ -117,7 +116,7 @@ def train_fn(
 
             progress.set_postfix_str(
                 TRAIN_METRICS_TEMPLATE_STR.format(
-                    loss_item,
+                    metrics["loss"] / (idx + 1),
                 )
             )
             progress.update(1)
@@ -147,11 +146,12 @@ def valid_fn(model, loader, device, items_n, max_size, padding_idx):
 
     with tqdm(total=n_batches, desc="valid") as progress:
         for idx, batch in enumerate(loader):
-            sources, tes = batch
+            sources, tes, tr_last_ind = batch
             sources = sources.to(device)
+            tr_last_ind = tr_last_ind.to(device)
 
             direct_prediction = direct_predict_transformer(
-                model, sources, src_mask, padding_idx
+                model, sources, src_mask, padding_idx, tr_last_ind
             )
 
             true = prepare_true_matrix(tes, items_n, device)
@@ -224,7 +224,6 @@ def experiment(
             train_loader,
             device,
             optimizer,
-            items_n=action_n,
             loss_fn=torch.nn.CrossEntropyLoss(),
             max_size=max_size,
             padding_idx=padding_idx,
@@ -249,6 +248,6 @@ if __name__ == "__main__":
         n_epochs=1,
         device="cpu",
         prepared_data_path="prepared_data",
-        batch_size=1,
+        batch_size=2,
         max_size=8,
     )
