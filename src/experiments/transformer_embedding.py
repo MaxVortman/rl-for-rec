@@ -29,13 +29,13 @@ def get_loaders(
 ):
     with open(f"{prepared_data_path}/train_data_seq.pkl", "rb") as f:
         train_data_seq = pickle.load(f)
-    
+
     with open(f"{prepared_data_path}/vad_data_tr_seq.pkl", "rb") as f:
         vad_data_tr_seq = pickle.load(f)
 
     collate_fn = TransformerDatasetTrainCollator(
-            max_size=max_size, padding_idx=padding_idx
-        )
+        max_size=max_size, padding_idx=padding_idx
+    )
 
     train_dataset = TransformerDatasetTrain(
         sequences=train_data_seq,
@@ -190,7 +190,6 @@ def experiment(
             d_hid=d_hid,
         ),
     }
-
 
     print("Experiment has been started")
     seed_all(seed)

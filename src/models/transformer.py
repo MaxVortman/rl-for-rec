@@ -96,7 +96,15 @@ class TransformerModel(nn.Module):
         super(TransformerModel, self).__init__()
         self.model_type = "Transformer"
 
-        self.transformer_embedding = TransformerEmbedding(ntoken=ntoken, d_model=d_model, nhead=nhead, d_hid=d_hid, nlayers=nlayers, dropout=dropout, padding_idx=padding_idx)
+        self.transformer_embedding = TransformerEmbedding(
+            ntoken=ntoken,
+            d_model=d_model,
+            nhead=nhead,
+            d_hid=d_hid,
+            nlayers=nlayers,
+            dropout=dropout,
+            padding_idx=padding_idx,
+        )
 
         self.head = nn.Linear(d_model, ntoken + 1)  # + padding_idx
 
@@ -119,7 +127,9 @@ class TransformerModel(nn.Module):
             output Tensor of shape [batch_size, num_tokens, sequence length]
         """
 
-        x = self.transformer_embedding(src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask)  # (sequence length, batch_size, dim_model)
+        x = self.transformer_embedding(
+            src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask
+        )  # (sequence length, batch_size, dim_model)
         x = self.head(x)  # (sequence length, batch_size, num_tokens)
 
         # Permute to have batch size first again
@@ -138,7 +148,7 @@ class DqnFreezeTransformer(nn.Module):
         super(DqnFreezeTransformer, self).__init__()
 
         self.transformer_embedding = transformer_embedding
-        
+
         self.head = nn.Linear(d_model, ntoken + 1)  # + padding_idx
 
         self.init_weights()
@@ -161,8 +171,10 @@ class DqnFreezeTransformer(nn.Module):
         """
 
         with torch.no_grad():
-            x = self.transformer_embedding(src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask)  # (sequence length, batch_size, dim_model)
-        
+            x = self.transformer_embedding(
+                src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask
+            )  # (sequence length, batch_size, dim_model)
+
         x = self.head(x)  # (sequence length, batch_size, num_tokens)
 
         # Permute to have batch size first again

@@ -10,6 +10,8 @@ import torch
 from training.progressbar import tqdm
 from training.utils import t2d, seed_all, log_metrics
 from training.checkpoint import CheckpointManager, make_checkpoint, load_embedding
+from training.predictions import direct_predict_transformer, prepare_true_matrix
+from training.metrics import ndcg_rewards
 from models.transformer import (
     DqnFreezeTransformer,
     TransformerEmbedding,
@@ -22,6 +24,7 @@ import pickle
 
 
 METRICS_TEMPLATE_STR = "loss - {:.3f}"
+TEST_METRICS_TEMPLATE_STR = "loss - {:.3f} direct_NDCG@100 - {:.3f}"
 
 
 def get_loaders(
@@ -35,8 +38,8 @@ def get_loaders(
         seq_reward = pickle.load(f)
 
     collate_fn_train = SeqRewardTrainDatasetCollator(
-            max_size=max_size, padding_idx=padding_idx
-        )
+        max_size=max_size, padding_idx=padding_idx
+    )
     collate_fn_test = SeqRewardTestDatasetCollator(
         max_size=max_size, padding_idx=padding_idx
     )
@@ -108,7 +111,9 @@ def train_fn(
             batch = t2d(batch, device)
 
             optimizer.zero_grad()
-            loss = compute_td_loss_transformer_finetune(model, batch, gamma, src_mask, padding_idx)
+            loss = compute_td_loss_transformer_finetune(
+                model, batch, gamma, src_mask, padding_idx
+            )
             loss_item = loss.detach().item()
             metrics["loss"] += loss_item
 
@@ -132,30 +137,47 @@ def train_fn(
 
 
 @torch.no_grad()
-def valid_fn(model, loader, device, max_size, padding_idx):
+def valid_fn(
+    model,
+    loader,
+    device,
+    max_size,
+    padding_idx,
+    items_n,
+    gamma=0.9,
+):
     model.eval()
 
-    metrics = {"loss": 0.0}
+    metrics = {"loss": 0.0, "direct_NDCG@100": 0.0}
     n_batches = len(loader)
 
     src_mask = generate_square_subsequent_mask(max_size).to(device)
 
     with tqdm(total=n_batches, desc="valid") as progress:
         for idx, batch in enumerate(loader):
-            sources, targets = t2d(batch, device)
-            pad_mask = create_pad_mask(matrix=sources, pad_token=padding_idx)
-            output = model(
-                src=sources, src_mask=src_mask, src_key_padding_mask=pad_mask
-            )
-            
+            loss_batch, trs, tes, rewards_tes, tr_last_ind = batch
+            loss_batch = t2d(loss_batch, device)
+            tr_last_ind = tr_last_ind.to(device)
 
-            loss = loss_fn(output, targets)
+            loss = compute_td_loss_transformer_finetune(
+                model, loss_batch, gamma, src_mask, padding_idx
+            )
             loss_item = loss.detach().item()
             metrics["loss"] += loss_item
 
+            states = loss_batch[0]
+            direct_prediction = direct_predict_transformer(
+                model, states, src_mask, padding_idx, tr_last_ind, trs=trs
+            )
+
+            true = prepare_true_matrix(tes, rewards_tes, items_n, device)
+            direct_ndcg100 = ndcg_rewards(true, direct_prediction, k=100)
+            metrics["direct_NDCG@100"] += direct_ndcg100
+
             progress.set_postfix_str(
-                METRICS_TEMPLATE_STR.format(
+                TEST_METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
+                    metrics["direct_NDCG@100"] / (idx + 1),
                 )
             )
             progress.update(1)
@@ -203,8 +225,12 @@ def experiment(
         max_size=max_size,
     )
     print("Data is loaded succesfully")
-    model = DqnFreezeTransformer(transformer_embedding=load_embedding(checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding),
-    ntoken=action_n) 
+    model = DqnFreezeTransformer(
+        transformer_embedding=load_embedding(
+            checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding
+        ),
+        ntoken=action_n,
+    )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     scheduler = None
@@ -214,17 +240,17 @@ def experiment(
         epoch_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         print(f"[{epoch_start_time}]\n[Epoch {epoch}/{n_epochs}]")
 
-        train_metrics = train_fn(
-            model,
-            train_loader,
-            device,
-            optimizer,
-            max_size=max_size,
-            padding_idx=padding_idx,
-            scheduler=scheduler,
-        )
+        # train_metrics = train_fn(
+        #     model,
+        #     train_loader,
+        #     device,
+        #     optimizer,
+        #     max_size=max_size,
+        #     padding_idx=padding_idx,
+        #     scheduler=scheduler,
+        # )
 
-        log_metrics(train_metrics, "Train")
+        # log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
             model,
@@ -232,22 +258,23 @@ def experiment(
             device,
             max_size=max_size,
             padding_idx=padding_idx,
+            items_n=action_n,
         )
 
         log_metrics(valid_metrics, "Valid")
 
-        checkpointer.process(
-            score=valid_metrics[main_metric],
-            epoch=epoch,
-            checkpoint=make_checkpoint(
-                epoch,
-                model,
-                optimizer,
-                scheduler,
-                metrics={"train": train_metrics, "valid": valid_metrics},
-                epoch_start_time=epoch_start_time,
-            ),
-        )
+        # checkpointer.process(
+        #     score=valid_metrics[main_metric],
+        #     epoch=epoch,
+        #     checkpoint=make_checkpoint(
+        #         epoch,
+        #         model,
+        #         optimizer,
+        #         scheduler,
+        #         metrics={"train": train_metrics, "valid": valid_metrics},
+        #         epoch_start_time=epoch_start_time,
+        #     ),
+        # )
 
 
 if __name__ == "__main__":

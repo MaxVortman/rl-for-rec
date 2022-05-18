@@ -34,7 +34,9 @@ class TransformerDatasetTest(Dataset):
         max_size: int = 512,
         padding_idx: int = 0,
     ):
-        self.tr_last_ind = torch.tensor([min(len(s), max_size) - 1 for s in sequences_tr])
+        self.tr_last_ind = torch.tensor(
+            [min(len(s), max_size) - 1 for s in sequences_tr]
+        )
         self.sequences_tr = torch.tensor(
             pad_truncate_sequences(
                 sequences_tr, max_len=max_size, value=padding_idx, padding="post"

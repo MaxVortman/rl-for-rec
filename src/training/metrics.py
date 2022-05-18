@@ -43,3 +43,15 @@ def ndcg_lib(ks, true, pred):
         .detach()
     )
     return [i.item() for i in ndcgs]
+
+
+def ndcg_rewards(true, pred, k=100):
+    pred_topk = torch.topk(pred, k, dim=1).indices
+    true_topk = torch.topk(true, k, dim=1)[0]
+    tp = 1.0 / torch.log2(torch.arange(2, k + 2, device=pred.device))
+    DCG = (torch.take_along_dim(true, pred_topk, dim=1) * tp).sum(dim=1)
+    IDCG = torch.tensor(
+        [(true_topk * tp)[: min(int(n), k)].sum() for n in (true > 0).sum(dim=1)],
+        device=pred.device,
+    )
+    return (DCG / IDCG).mean(0).detach().item()

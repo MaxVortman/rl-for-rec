@@ -4,7 +4,9 @@ import shutil
 import torch
 
 
-def make_checkpoint(epoch, model, optimizer=None, scheduler=None, metrics=None, **kwargs) -> dict:
+def make_checkpoint(
+    epoch, model, optimizer=None, scheduler=None, metrics=None, **kwargs
+) -> dict:
     """Generate checkpoint dict.
 
     Args:
@@ -20,11 +22,17 @@ def make_checkpoint(epoch, model, optimizer=None, scheduler=None, metrics=None, 
     Returns:
         dict: [description]
     """
-    if isinstance(model, (torch.nn.DataParallel, torch.nn.parallel.DistributedDataParallel)):
+    if isinstance(
+        model, (torch.nn.DataParallel, torch.nn.parallel.DistributedDataParallel)
+    ):
         return make_checkpoint(epoch, model.module, optimizer, scheduler, metrics)
 
     if not isinstance(model, torch.nn.Module):
-        raise ValueError("Expected that model will be an instance of nn.Module but got {}!".format(type(model)))
+        raise ValueError(
+            "Expected that model will be an instance of nn.Module but got {}!".format(
+                type(model)
+            )
+        )
 
     checkpoint = {"epoch": epoch}
     if model is not None:
@@ -89,12 +97,12 @@ def load_embedding(
 
     best_path = os.path.join(checkpoint_dir, "best.pth")
     best = torch.load(best_path)
-    
+
     state_dict = dict()
     prefix = "transformer_embedding."
     for key, value in best["model_state_dict"].items():
         if key.startswith(prefix):
-            state_dict[key[len(prefix):]] = value
+            state_dict[key[len(prefix) :]] = value
 
     model.load_state_dict(state_dict)
 
@@ -195,8 +203,12 @@ class CheckpointManager:
         self.metrics = []  # list of dicts where 2 keys required - metric_name & 'epoch'
         self.best_metrics = []
         self.save_fn = save_fn
-        self.metrics_file = metrics_file if metrics_file.endswith(".json") else f"{metrics_file}.json"
-        self.config_file = config_file if config_file.endswith(".json") else f"{config_file}.json"
+        self.metrics_file = (
+            metrics_file if metrics_file.endswith(".json") else f"{metrics_file}.json"
+        )
+        self.config_file = (
+            config_file if config_file.endswith(".json") else f"{config_file}.json"
+        )
 
     def __repr__(self):  # noqa: D105
         return (
@@ -224,7 +236,7 @@ class CheckpointManager:
 
     def _save_configs(self, configs) -> None:
         """Store checkpoint information to a file."""
-        
+
         file_path = os.path.join(self.logdir, self.config_file)
         with open(file_path, "w") as f:
             json.dump(configs, f, indent=4)
@@ -296,7 +308,9 @@ class CheckpointManager:
                 key=lambda record: record[self.metric_name],
                 reverse=not self.metric_minimization,
             )
-            to_remove = os.path.join(self.logdir, self._checkpoint_name(self.best_metrics.pop(-1)["epoch"]))
+            to_remove = os.path.join(
+                self.logdir, self._checkpoint_name(self.best_metrics.pop(-1)["epoch"])
+            )
             try:
                 os.remove(to_remove)
             except FileNotFoundError:
