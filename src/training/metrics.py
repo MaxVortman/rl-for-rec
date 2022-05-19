@@ -54,4 +54,4 @@ def ndcg_rewards(true, pred, k=100):
         [(true_topk[i] * tp)[:int(n)].sum() for i, n in enumerate((true_topk > 0).sum(dim=1))],
         device=pred.device,
     )
-    return (DCG / IDCG).mean(0).detach().item()
+    return (DCG / IDCG).nanmean(0).detach().item()
