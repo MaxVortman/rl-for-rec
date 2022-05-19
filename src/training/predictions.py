@@ -70,7 +70,7 @@ def prepare_true_matrix(tes, rewards, items_n, device):
         for j in range(len(te)):
             true_matrix[i, te[j]] = rewards[i][j]
 
-    return true_matrix
+    return true_matrix + 1
 
 
 def direct_predict_transformer(

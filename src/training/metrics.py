@@ -51,7 +51,7 @@ def ndcg_rewards(true, pred, k=100):
     tp = 1.0 / torch.log2(torch.arange(2, k + 2, device=pred.device))
     DCG = (torch.take_along_dim(true, pred_topk, dim=1) * tp).sum(dim=1)
     IDCG = torch.tensor(
-        [(true_topk[i] * tp)[: min(int(n), k)].sum() for i, n in enumerate((true > 0).sum(dim=1))],
+        [(true_topk[i] * tp)[:int(n)].sum() for i, n in enumerate((true_topk > 0).sum(dim=1))],
         device=pred.device,
     )
     return (DCG / IDCG).mean(0).detach().item()
