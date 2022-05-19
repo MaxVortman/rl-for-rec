@@ -68,9 +68,10 @@ def prepare_true_matrix(tes, rewards, items_n, device):
 
     for i, te in enumerate(tes):
         for j in range(len(te)):
-            true_matrix[i, te[j]] = rewards[i][j]
+            r = rewards[i][j]
+            true_matrix[i, te[j]] = r if r > 0 else 0 
 
-    return true_matrix + 1
+    return true_matrix
 
 
 def direct_predict_transformer(
