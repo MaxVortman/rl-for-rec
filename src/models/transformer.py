@@ -2,6 +2,7 @@ import math
 import torch
 from torch import nn, Tensor
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from .utils import EmbeddingDropout
 
 
 class PositionalEncoding(nn.Module):
@@ -144,10 +145,21 @@ class DqnFreezeTransformer(nn.Module):
         transformer_embedding: TransformerEmbedding,
         ntoken: int,
         d_model: int = 512,
+        dropout_rate: float = 0.1
     ):
         super(DqnFreezeTransformer, self).__init__()
 
         self.transformer_embedding = transformer_embedding
+
+        self.embedding_dropout = EmbeddingDropout(dropout_rate)
+
+        self.linears = nn.Sequential(
+            nn.Linear(d_model, 4 * d_model),
+            nn.GELU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(4 * d_model, d_model),
+        )
+        self.linears_lnorm = nn.LayerNorm(d_model)
 
         self.head = nn.Linear(d_model, ntoken + 1)  # + padding_idx
 
@@ -175,10 +187,14 @@ class DqnFreezeTransformer(nn.Module):
                 src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask
             )  # (sequence length, batch_size, dim_model)
 
-        x = self.head(x)  # (sequence length, batch_size, num_tokens)
+        x = x.permute(1, 0, 2)  # (batch_size, sequence length, dim_model)
+        x = self.embedding_dropout(x)
 
-        # Permute to have batch size first again
-        x = x.permute(1, 2, 0)  # (batch_size, num_tokens, sequence length)
+        x = x + self.linears_lnorm(self.linears(x))
+
+        x = self.head(x)  # (batch_size, sequence length, num_tokens)
+
+        x = x.permute(0, 2, 1)  # (batch_size, num_tokens, sequence length)
 
         return x
 
