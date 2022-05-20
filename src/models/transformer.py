@@ -207,7 +207,7 @@ class DqnTransformerEmbedding(nn.Module):
         d_model: int = 512,
         dropout_rate: float = 0.1
     ):
-        super(DqnFreezeTransformer, self).__init__()
+        super(DqnTransformerEmbedding, self).__init__()
 
         self.transformer_embedding = transformer_embedding
 
