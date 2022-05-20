@@ -199,6 +199,66 @@ class DqnFreezeTransformer(nn.Module):
         return x
 
 
+class DqnTransformerEmbedding(nn.Module):
+    def __init__(
+        self,
+        transformer_embedding: TransformerEmbedding,
+        ntoken: int,
+        d_model: int = 512,
+        dropout_rate: float = 0.1
+    ):
+        super(DqnFreezeTransformer, self).__init__()
+
+        self.transformer_embedding = transformer_embedding
+
+        # self.embedding_dropout = EmbeddingDropout(dropout_rate)
+
+        # self.linears = nn.Sequential(
+        #     nn.Linear(d_model, 4 * d_model),
+        #     nn.GELU(),
+        #     nn.Dropout(dropout_rate),
+        #     nn.Linear(4 * d_model, d_model),
+        # )
+        # self.linears_lnorm = nn.LayerNorm(d_model)
+
+        self.head = nn.Linear(d_model, ntoken + 1)  # + padding_idx
+
+        self.init_weights()
+
+    def init_weights(self) -> None:
+        initrange = 0.1
+        self.head.bias.data.zero_()
+        self.head.weight.data.uniform_(-initrange, initrange)
+
+    def forward(
+        self, src: Tensor, src_mask: Tensor, src_key_padding_mask: Tensor
+    ) -> Tensor:
+        """
+        Args:
+            src: Tensor, shape [batch_size, seq_len]
+            src_mask: Tensor, shape [seq_len, seq_len]
+
+        Returns:
+            output Tensor of shape [batch_size, num_tokens, sequence length]
+        """
+        x = self.transformer_embedding(
+                src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask
+            )  # (sequence length, batch_size, dim_model)
+
+        # x = x.permute(1, 0, 2)  # (batch_size, sequence length, dim_model)
+        # x = self.embedding_dropout(x)
+
+        # x = x + self.linears_lnorm(self.linears(x))
+
+        # x = self.head(x)  # (batch_size, sequence length, num_tokens)
+        x = self.head(x)  # (sequence length, batch_size, num_tokens)
+
+        # x = x.permute(0, 2, 1)  # (batch_size, num_tokens, sequence length)
+        x = x.permute(1, 2, 0)  # (batch_size, num_tokens, sequence length)
+
+        return x
+
+
 def generate_square_subsequent_mask(sz: int) -> Tensor:
     """Generates an upper-triangular matrix of -inf, with zeros on diag."""
     return torch.triu(torch.ones(sz, sz) * float("-inf"), diagonal=1)

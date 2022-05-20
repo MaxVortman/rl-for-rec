@@ -13,6 +13,7 @@ from training.checkpoint import CheckpointManager, make_checkpoint, load_embeddi
 from training.predictions import direct_predict_transformer, prepare_true_matrix
 from training.metrics import ndcg_rewards
 from models.transformer import (
+    DqnTransformerEmbedding,
     DqnFreezeTransformer,
     TransformerEmbedding,
     generate_square_subsequent_mask,
@@ -228,7 +229,12 @@ def experiment(
     transformer_embedding = load_embedding(
         checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding
     )
-    model = DqnFreezeTransformer(
+    # model = DqnFreezeTransformer(
+    #     transformer_embedding=transformer_embedding,
+    #     ntoken=action_n,
+    #     d_model=transformer_embedding.d_model,
+    # )
+    model = DqnTransformerEmbedding(
         transformer_embedding=transformer_embedding,
         ntoken=action_n,
         d_model=transformer_embedding.d_model,
