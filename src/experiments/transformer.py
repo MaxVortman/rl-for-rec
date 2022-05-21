@@ -15,6 +15,7 @@ from training.predictions import (
     direct_predict_transformer,
     chain_predict_transformer,
 )
+from training.checkpoint import CheckpointManager, make_checkpoint
 from models.transformer import (
     TransformerModel,
     generate_square_subsequent_mask,
@@ -175,6 +176,7 @@ def experiment(
     n_epochs,
     device,
     prepared_data_path,
+    logdir,
     num_workers=0,
     batch_size=256,
     seed=23,
@@ -188,9 +190,31 @@ def experiment(
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
-    padding_idx = action_n
+    padding_idx = 0
     print(f"Number of possible actions is {action_n}")
     print(f"Padding index is {padding_idx}")
+
+    main_metric = "direct_NDCG@100"
+
+    checkpointer = CheckpointManager(
+        logdir=logdir,
+        metric=main_metric,
+        metric_minimization=False,
+        save_n_best=1,
+    )
+
+    model_config = {
+        "name": "Transformer",
+        "args": dict(
+            ntoken=action_n,
+            d_model=d_model,
+            padding_idx=padding_idx,
+            nhead=n_head,
+            nlayers=num_encoder_layers,
+            dropout=dropout_rate,
+            d_hid=d_hid,
+        ),
+    }
 
     print("Experiment has been started")
     seed_all(seed)
@@ -202,17 +226,11 @@ def experiment(
         max_size=max_size,
     )
     print("Data is loaded succesfully")
-    model = TransformerModel(
-        ntoken=action_n,
-        d_model=d_model,
-        padding_idx=padding_idx,
-        nhead=n_head,
-        nlayers=num_encoder_layers,
-        dropout=dropout_rate,
-        d_hid=d_hid,
-    )
+    model = TransformerModel(**model_config["args"])
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    scheduler = None
     print("Training...")
 
     for epoch in range(1, n_epochs + 1):
@@ -224,7 +242,7 @@ def experiment(
             train_loader,
             device,
             optimizer,
-            loss_fn=torch.nn.CrossEntropyLoss(),
+            loss_fn=loss_fn,
             max_size=max_size,
             padding_idx=padding_idx,
         )
@@ -242,12 +260,27 @@ def experiment(
 
         log_metrics(valid_metrics, "Valid")
 
+        checkpointer.process(
+            score=valid_metrics[main_metric],
+            epoch=epoch,
+            checkpoint=make_checkpoint(
+                epoch,
+                model,
+                optimizer,
+                scheduler,
+                model_configuration=model_config,
+                metrics={"train": train_metrics, "valid": valid_metrics},
+                epoch_start_time=epoch_start_time,
+            ),
+        )
+
 
 if __name__ == "__main__":
     experiment(
         n_epochs=1,
         device="cpu",
-        prepared_data_path="prepared_data",
+        prepared_data_path="prepared_whole_data",
+        logdir="logs/transformer",
         batch_size=2,
         max_size=8,
     )
