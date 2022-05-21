@@ -61,7 +61,7 @@ def prepare_true_matrix(tes, items_n, device):
     return true_matrix
 
 
-def prepare_true_matrix(tes, rewards, items_n, device):
+def prepare_true_matrix_rewards(tes, rewards, items_n, device):
     true_matrix = torch.zeros(
         size=(len(tes), items_n + 1), device=device
     )  # + padding index

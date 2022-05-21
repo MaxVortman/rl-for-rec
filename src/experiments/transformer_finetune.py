@@ -10,7 +10,7 @@ import torch
 from training.progressbar import tqdm
 from training.utils import t2d, seed_all, log_metrics
 from training.checkpoint import CheckpointManager, make_checkpoint, load_embedding
-from training.predictions import direct_predict_transformer, prepare_true_matrix
+from training.predictions import direct_predict_transformer, prepare_true_matrix_rewards
 from training.metrics import ndcg_rewards
 from models.transformer import (
     DqnTransformerEmbedding,
@@ -171,7 +171,7 @@ def valid_fn(
                 model, states, src_mask, padding_idx, tr_last_ind, trs=trs
             )
 
-            true = prepare_true_matrix(tes, rewards_tes, items_n, device)
+            true = prepare_true_matrix_rewards(tes, rewards_tes, items_n, device)
             direct_ndcg100 = ndcg_rewards(true, direct_prediction, k=100)
             metrics["direct_NDCG@100"] += direct_ndcg100
 

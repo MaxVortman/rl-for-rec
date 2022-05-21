@@ -161,7 +161,7 @@ def valid_fn(model, loader, device, items_n, max_size, padding_idx):
 
             progress.set_postfix_str(
                 TEST_METRICS_TEMPLATE_STR.format(
-                    direct_ndcg100,
+                    metrics["direct_NDCG@100"] / (idx + 1),
                 )
             )
             progress.update(1)
@@ -237,17 +237,17 @@ def experiment(
         epoch_start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         print(f"[{epoch_start_time}]\n[Epoch {epoch}/{n_epochs}]")
 
-        train_metrics = train_fn(
-            model,
-            train_loader,
-            device,
-            optimizer,
-            loss_fn=loss_fn,
-            max_size=max_size,
-            padding_idx=padding_idx,
-        )
+        # train_metrics = train_fn(
+        #     model,
+        #     train_loader,
+        #     device,
+        #     optimizer,
+        #     loss_fn=loss_fn,
+        #     max_size=max_size,
+        #     padding_idx=padding_idx,
+        # )
 
-        log_metrics(train_metrics, "Train")
+        # log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
             model,
