@@ -83,6 +83,62 @@ class TransformerEmbedding(nn.Module):
         return x
 
 
+class TransformerEmbeddingFreeze(nn.Module):
+    def __init__(
+        self,
+        ntoken: int,
+        d_model: int,
+        nhead: int,
+        d_hid: int,
+        nlayers: int,
+        dropout: float = 0.5,
+        padding_idx: int = 0,
+    ):
+        super(TransformerEmbeddingFreeze, self).__init__()
+        self.training = False
+        self.d_model = d_model
+
+        self.embedding = nn.Embedding(
+            ntoken + 1, d_model, padding_idx=padding_idx
+        )  # + padding_idx
+
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+
+        encoder_layers = TransformerEncoderLayer(d_model, nhead, d_hid, dropout)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+
+        for module in self.children():
+            module.eval()
+
+    def train(self, mode):
+        return self
+
+    def forward(
+        self, src: Tensor, src_mask: Tensor, src_key_padding_mask: Tensor
+    ) -> Tensor:
+        """
+        Args:
+            src: Tensor, shape [batch_size, seq_len]
+            src_mask: Tensor, shape [seq_len, seq_len]
+
+        Returns:
+            output Tensor of shape [sequence length, batch_size, dim_model]
+        """
+
+        x = self.embedding(src) * math.sqrt(self.d_model)
+
+        # We could use the parameter batch_first=True, but our KDL version doesn't support it yet, so we permute
+        # to obtain size (sequence length, batch_size, dim_model)
+        x = x.permute(1, 0, 2)
+
+        x = self.pos_encoder(x)
+        x = self.transformer_encoder(
+            x, mask=src_mask, src_key_padding_mask=src_key_padding_mask
+        )  # (sequence length, batch_size, dim_model)
+
+        return x
+
+
 class TransformerModel(nn.Module):
     def __init__(
         self,

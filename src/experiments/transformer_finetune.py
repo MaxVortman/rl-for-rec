@@ -14,6 +14,7 @@ from training.predictions import direct_predict_transformer, prepare_true_matrix
 from training.metrics import ndcg_rewards
 from models.transformer import (
     DqnTransformerEmbedding,
+    TransformerEmbeddingFreeze,
     DqnFreezeTransformer,
     TransformerEmbedding,
     generate_square_subsequent_mask,
@@ -227,18 +228,18 @@ def experiment(
     )
     print("Data is loaded succesfully")
     transformer_embedding = load_embedding(
-        checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding
+        checkpoint_dir=checkpoint_dir, model_class=TransformerEmbeddingFreeze
     )
-    # model = DqnFreezeTransformer(
-    #     transformer_embedding=transformer_embedding,
-    #     ntoken=action_n,
-    #     d_model=transformer_embedding.d_model,
-    # )
-    model = DqnTransformerEmbedding(
+    model = DqnFreezeTransformer(
         transformer_embedding=transformer_embedding,
         ntoken=action_n,
         d_model=transformer_embedding.d_model,
     )
+    # model = DqnTransformerEmbedding(
+    #     transformer_embedding=transformer_embedding,
+    #     ntoken=action_n,
+    #     d_model=transformer_embedding.d_model,
+    # )
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     scheduler = None
