@@ -86,14 +86,19 @@ def save_checkpoint(
         shutil.copyfile(filename, last_filename)
 
 
-def load_embedding(
-    checkpoint_dir,
-    model_class,
-):
+def load_model_config(checkpoint_dir, model_class):
     config_path = os.path.join(checkpoint_dir, "config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
     model = model_class(**config["args"])
+    return model
+
+
+def load_embedding(
+    checkpoint_dir,
+    model_class,
+):
+    model = load_model_config(checkpoint_dir, model_class)
 
     best_path = os.path.join(checkpoint_dir, "best.pth")
     best = torch.load(best_path)
