@@ -201,7 +201,7 @@ class DqnFreezeTransformer(nn.Module):
         transformer_embedding: TransformerEmbedding,
         ntoken: int,
         d_model: int = 512,
-        dropout_rate: float = 0.1
+        dropout_rate: float = 0.1,
     ):
         super(DqnFreezeTransformer, self).__init__()
 
@@ -261,7 +261,7 @@ class DqnTransformerEmbedding(nn.Module):
         transformer_embedding: TransformerEmbedding,
         ntoken: int,
         d_model: int = 512,
-        dropout_rate: float = 0.1
+        dropout_rate: float = 0.1,
     ):
         super(DqnTransformerEmbedding, self).__init__()
 
@@ -298,8 +298,8 @@ class DqnTransformerEmbedding(nn.Module):
             output Tensor of shape [batch_size, num_tokens, sequence length]
         """
         x = self.transformer_embedding(
-                src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask
-            )  # (sequence length, batch_size, dim_model)
+            src=src, src_mask=src_mask, src_key_padding_mask=src_key_padding_mask
+        )  # (sequence length, batch_size, dim_model)
 
         # x = x.permute(1, 0, 2)  # (batch_size, sequence length, dim_model)
         # x = self.embedding_dropout(x)

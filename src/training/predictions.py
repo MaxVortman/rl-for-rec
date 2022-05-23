@@ -69,7 +69,7 @@ def prepare_true_matrix_rewards(tes, rewards, items_n, device):
     for i, te in enumerate(tes):
         for j in range(len(te)):
             r = rewards[i][j]
-            true_matrix[i, te[j]] = r if r > 0 else 0 
+            true_matrix[i, te[j]] = r if r > 0 else 0
 
     return true_matrix
 

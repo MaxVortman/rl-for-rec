@@ -98,25 +98,37 @@ def test_fn(
     return metrics
 
 
-def transformer_test(loader, device, transformer_checkpoint_dir, max_size, padding_idx, items_n):
+def transformer_test(
+    loader, device, transformer_checkpoint_dir, max_size, padding_idx, items_n
+):
     model = load_model_config(transformer_checkpoint_dir, TransformerModel)
     best_path = os.path.join(transformer_checkpoint_dir, "best.pth")
     load_checkpoint(best_path, model)
     model.to(device)
     test_metrics = test_fn(
-            model,
-            loader,
-            device,
-            max_size=max_size,
-            padding_idx=padding_idx,
-            items_n=items_n,
-        )
+        model,
+        loader,
+        device,
+        max_size=max_size,
+        padding_idx=padding_idx,
+        items_n=items_n,
+    )
     log_metrics(test_metrics, "Test")
     return test_metrics
 
 
-def transformer_finetuned_test(loader, device, embedding_checkpoint_dir, finetuned_checkpoint_dir, max_size, padding_idx, items_n):
-    transformer_embedding = load_model_config(embedding_checkpoint_dir, TransformerEmbeddingFreeze)
+def transformer_finetuned_test(
+    loader,
+    device,
+    embedding_checkpoint_dir,
+    finetuned_checkpoint_dir,
+    max_size,
+    padding_idx,
+    items_n,
+):
+    transformer_embedding = load_model_config(
+        embedding_checkpoint_dir, TransformerEmbeddingFreeze
+    )
     model = DqnFreezeTransformer(
         transformer_embedding=transformer_embedding,
         ntoken=items_n,
@@ -126,13 +138,13 @@ def transformer_finetuned_test(loader, device, embedding_checkpoint_dir, finetun
     load_checkpoint(best_path, model)
     model.to(device)
     test_metrics = test_fn(
-            model,
-            loader,
-            device,
-            max_size=max_size,
-            padding_idx=padding_idx,
-            items_n=items_n,
-        )
+        model,
+        loader,
+        device,
+        max_size=max_size,
+        padding_idx=padding_idx,
+        items_n=items_n,
+    )
     log_metrics(test_metrics, "Test")
     return test_metrics
 
@@ -160,19 +172,23 @@ def experiment(
         max_size=max_size,
     )
     print("Data is loaded succesfully")
-    
+
     print("Testing...")
 
     metrics = []
     if transformer_checkpoint_dirs:
         for dir in transformer_checkpoint_dirs:
-            test_metrics = transformer_test(test_loader, device, dir, max_size, padding_idx, action_n)
+            test_metrics = transformer_test(
+                test_loader, device, dir, max_size, padding_idx, action_n
+            )
             test_metrics["model"] = dir
             metrics.append(test_metrics)
 
     if finetuned_checkpoint_dirs:
         for emb_dir, trans_dir in finetuned_checkpoint_dirs:
-            test_metrics = transformer_finetuned_test(test_loader, device, emb_dir, trans_dir, max_size, padding_idx, action_n)
+            test_metrics = transformer_finetuned_test(
+                test_loader, device, emb_dir, trans_dir, max_size, padding_idx, action_n
+            )
             test_metrics["model"] = trans_dir
             metrics.append(test_metrics)
 
@@ -180,8 +196,6 @@ def experiment(
         metrics_df = pd.DataFrame.from_records(metrics)
         print(metrics_df)
         metrics_df.to_csv(logdir + "/test_metrics.csv")
-
-    
 
 
 if __name__ == "__main__":
