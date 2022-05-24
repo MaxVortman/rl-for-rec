@@ -189,6 +189,7 @@ def experiment(
     seed=23,
     lr=1e-3,
     max_size=512,
+    alpha=0.9,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -240,6 +241,7 @@ def experiment(
             max_size=max_size,
             padding_idx=padding_idx,
             scheduler=scheduler,
+            alpha=alpha,
         )
 
         log_metrics(train_metrics, "Train")
@@ -251,6 +253,7 @@ def experiment(
             max_size=max_size,
             padding_idx=padding_idx,
             items_n=action_n,
+            alpha=alpha,
         )
 
         log_metrics(valid_metrics, "Valid")
