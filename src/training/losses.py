@@ -111,3 +111,16 @@ def compute_cql_loss_transformer(model, batch, gamma, src_mask, padding_idx, alp
     loss = td_loss + alpha * (q_value_state_d_action_p.mean() - q_value_state_d_action_d.mean())
 
     return loss
+
+
+def compute_td_ce_loss_transformer(model, batch, gamma, src_mask, padding_idx, alpha):
+    td_loss = compute_td_loss_transformer_finetune(model, batch, gamma, src_mask, padding_idx)
+
+    states, next_states = batch[0], batch[2]
+    pad_mask = create_pad_mask(matrix=states, pad_token=padding_idx)
+    prediction = model(states, src_mask=src_mask, src_key_padding_mask=pad_mask)
+    ce = F.cross_entropy(prediction, next_states)
+
+    loss = td_loss + alpha * ce
+
+    return loss
