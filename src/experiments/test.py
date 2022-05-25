@@ -8,7 +8,7 @@ from training.progressbar import tqdm
 from training.utils import t2d, log_metrics
 from training.checkpoint import load_checkpoint, load_model_config
 from training.predictions import direct_predict_transformer, prepare_true_matrix_rewards
-from training.metrics import ndcg_rewards
+from training.metrics import ndcg_lib, recall_lib
 from models.transformer import (
     TransformerModel,
     TransformerEmbeddingFreeze,
@@ -20,7 +20,7 @@ import os
 import pandas as pd
 
 
-TEST_METRICS_TEMPLATE_STR = "direct_NDCG@100 - {:.3f}"
+TEST_METRICS_TEMPLATE_STR = "direct_NDCG@100 - {:.3f} direct_NDCG@10 - {:.3f} direct_Recall@50 - {:.3f} direct_Recall@20 - {:.3f}"
 
 
 def get_loaders(
@@ -65,7 +65,10 @@ def test_fn(
 ):
     model.eval()
 
-    metrics = {"direct_NDCG@100": 0.0}
+    metrics = {"direct_NDCG@100": 0.0,
+    "direct_NDCG@10": 0.0,
+    "direct_Recall@50": 0.0,
+    "direct_Recall@20": 0.0}
     n_batches = len(loader)
 
     src_mask = generate_square_subsequent_mask(max_size).to(device)
@@ -82,12 +85,19 @@ def test_fn(
             )
 
             true = prepare_true_matrix_rewards(tes, rewards_tes, items_n, device)
-            direct_ndcg100 = ndcg_rewards(true, direct_prediction, k=100)
+            direct_ndcg100, direct_ndcg10 = ndcg_lib([100, 10], true, direct_prediction)
+            direct_recall50, direct_recall20 = recall_lib([50, 20], true, direct_prediction)
             metrics["direct_NDCG@100"] += direct_ndcg100
+            metrics["direct_NDCG@10"] += direct_ndcg10
+            metrics["direct_Recall@50"] += direct_recall50
+            metrics["direct_Recall@20"] += direct_recall20
 
             progress.set_postfix_str(
                 TEST_METRICS_TEMPLATE_STR.format(
                     metrics["direct_NDCG@100"] / (idx + 1),
+                    metrics["direct_NDCG@10"] / (idx + 1),
+                    metrics["direct_Recall@50"] / (idx + 1),
+                    metrics["direct_Recall@20"] / (idx + 1),
                 )
             )
             progress.update(1)

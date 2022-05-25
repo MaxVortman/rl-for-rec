@@ -1,6 +1,7 @@
 import torch
 
 from ranking_metrics_torch.cumulative_gain import ndcg_at
+from ranking_metrics_torch.precision_recall import recall_at
 
 
 def ndcg(true, pred, k=100):
@@ -39,10 +40,23 @@ def ndcg_lib(ks, true, pred):
             scores=pred,
             labels=true,
         )
-        .mean(0)
+        .nanmean(0)
         .detach()
     )
     return [i.item() for i in ndcgs]
+
+
+def recall_lib(ks, true, pred):
+    recalls = (
+        recall_at(
+            ks=torch.tensor(ks, device=pred.device, dtype=torch.int),
+            scores=pred,
+            labels=true,
+        )
+        .nanmean(0)
+        .detach()
+    )
+    return [i.item() for i in recalls]
 
 
 def ndcg_rewards(true, pred, k=100):
