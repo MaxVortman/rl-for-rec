@@ -114,12 +114,22 @@ def compute_cql_loss_transformer(model, batch, gamma, src_mask, padding_idx, alp
 
 
 def compute_td_ce_loss_transformer(model, batch, gamma, src_mask, padding_idx, alpha):
-    td_loss = compute_td_loss_transformer_finetune(model, batch, gamma, src_mask, padding_idx)
+    states, rewards, next_states, dones = batch
 
-    states, next_states = batch[0], batch[2]
     pad_mask = create_pad_mask(matrix=states, pad_token=padding_idx)
-    prediction = model(states, src_mask=src_mask, src_key_padding_mask=pad_mask)
-    ce = F.cross_entropy(prediction, next_states)
+    pad_mask_next = create_pad_mask(matrix=next_states, pad_token=padding_idx)
+
+    q_values = model(states, src_mask=src_mask, src_key_padding_mask=pad_mask)
+    next_q_values = model(
+        next_states, src_mask=src_mask, src_key_padding_mask=pad_mask_next
+    )
+    q_value = q_values.gather(1, states.unsqueeze(1)).squeeze(1)
+    next_q_value = next_q_values.max(1)[0]
+    expected_q_value = rewards + gamma * next_q_value * (1 - dones)
+
+    td_loss = (q_value - expected_q_value).pow(2).mean()
+    
+    ce = F.cross_entropy(q_values, next_states)
 
     loss = td_loss + alpha * ce
 
