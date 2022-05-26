@@ -31,7 +31,7 @@ class SeqRewardDatasetTrain(Dataset):
         seq = self.sequences[index]
         state = seq[:-1]
         next_state = seq[1:]
-        reward = self.rewards[index]
+        reward = self.rewards[index][1:]
         if index in self.cumsum_count:
             done = [0] * (len(seq) - 2) + [1]
         else:
@@ -71,8 +71,8 @@ class SeqRewardDatasetTest(Dataset):
         tr = self.sequences_tr[index]
         te = self.sequences_te[index]
         next_state = state[1:] + [te[0]]
-        reward = self.rewards_tr[index]
         rewards_te = self.rewards_te[index]
+        reward = self.rewards_tr[index][1:] + [rewards_te[0]]
         tr_last_ind = self.tr_last_ind[index]
 
         return state, reward, next_state, self.done, tr, te, rewards_te, tr_last_ind

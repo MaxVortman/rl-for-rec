@@ -26,7 +26,7 @@ def compute_td_loss_transformer_finetune(model, batch, gamma, src_mask, padding_
     next_q_values = model(
         next_states, src_mask=src_mask, src_key_padding_mask=pad_mask_next
     )
-    q_value = q_values.gather(1, states.unsqueeze(1)).squeeze(1)
+    q_value = q_values.gather(1, next_states.unsqueeze(1)).squeeze(1)
     next_q_value = next_q_values.max(1)[0]
     expected_q_value = rewards + gamma * next_q_value * (1 - dones)
 
@@ -123,7 +123,7 @@ def compute_td_ce_loss_transformer(model, batch, gamma, src_mask, padding_idx, a
     next_q_values = model(
         next_states, src_mask=src_mask, src_key_padding_mask=pad_mask_next
     )
-    q_value = q_values.gather(1, states.unsqueeze(1)).squeeze(1)
+    q_value = q_values.gather(1, next_states.unsqueeze(1)).squeeze(1)
     next_q_value = next_q_values.max(1)[0]
     expected_q_value = rewards + gamma * next_q_value * (1 - dones)
 
