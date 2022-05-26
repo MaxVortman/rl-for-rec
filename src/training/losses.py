@@ -99,16 +99,22 @@ def ddpg_loss(
 
 
 def compute_cql_loss_transformer(model, batch, gamma, src_mask, padding_idx, alpha):
-    td_loss = compute_td_loss_transformer_finetune(model, batch, gamma, src_mask, padding_idx)
+    td_loss = compute_td_loss_transformer_finetune(
+        model, batch, gamma, src_mask, padding_idx
+    )
 
     states = batch[0]
     pad_mask = create_pad_mask(matrix=states, pad_token=padding_idx)
 
     q_values_state_d = model(states, src_mask=src_mask, src_key_padding_mask=pad_mask)
     q_value_state_d_action_p = q_values_state_d.max(1)[0]
-    q_value_state_d_action_d = q_values_state_d.gather(1, states.unsqueeze(1)).squeeze(1)
+    q_value_state_d_action_d = q_values_state_d.gather(1, states.unsqueeze(1)).squeeze(
+        1
+    )
 
-    loss = td_loss + alpha * (q_value_state_d_action_p.mean() - q_value_state_d_action_d.mean())
+    loss = td_loss + alpha * (
+        q_value_state_d_action_p.mean() - q_value_state_d_action_d.mean()
+    )
 
     return loss
 
@@ -128,7 +134,7 @@ def compute_td_ce_loss_transformer(model, batch, gamma, src_mask, padding_idx, a
     expected_q_value = rewards + gamma * next_q_value * (1 - dones)
 
     td_loss = (q_value - expected_q_value).pow(2).mean()
-    
+
     ce = F.cross_entropy(q_values, next_states)
 
     loss = td_loss + alpha * ce

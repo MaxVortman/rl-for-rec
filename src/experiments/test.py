@@ -65,10 +65,12 @@ def test_fn(
 ):
     model.eval()
 
-    metrics = {"direct_NDCG@100": 0.0,
-    "direct_NDCG@10": 0.0,
-    "direct_Recall@50": 0.0,
-    "direct_Recall@20": 0.0}
+    metrics = {
+        "direct_NDCG@100": 0.0,
+        "direct_NDCG@10": 0.0,
+        "direct_Recall@50": 0.0,
+        "direct_Recall@20": 0.0,
+    }
     n_batches = len(loader)
 
     src_mask = generate_square_subsequent_mask(max_size).to(device)
@@ -86,7 +88,9 @@ def test_fn(
 
             true = prepare_true_matrix_rewards(tes, rewards_tes, items_n, device)
             direct_ndcg100, direct_ndcg10 = ndcg_lib([100, 10], true, direct_prediction)
-            direct_recall50, direct_recall20 = recall_lib([50, 20], true, direct_prediction)
+            direct_recall50, direct_recall20 = recall_lib(
+                [50, 20], true, direct_prediction
+            )
             metrics["direct_NDCG@100"] += direct_ndcg100
             metrics["direct_NDCG@10"] += direct_ndcg10
             metrics["direct_Recall@50"] += direct_recall50
