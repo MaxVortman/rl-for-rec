@@ -73,7 +73,7 @@ def train_fn(
     gamma=0.9,
     scheduler=None,
     accumulation_steps=1,
-    soft_tau=1e-3,
+    soft_tau=1e-2,
 ):
     model.train()
 
