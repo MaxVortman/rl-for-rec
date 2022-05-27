@@ -16,6 +16,18 @@ def compute_td_loss(model, state, action, reward, next_state, done, gamma):
     return loss
 
 
+def compute_td_loss_target(model, target_model, state, action, reward, next_state, done, gamma):
+    with torch.no_grad():
+        Q_targets_next = target_model(next_state).detach().max(1)[0].unsqueeze(1)
+        Q_targets = reward + gamma * Q_targets_next * (1 - done)
+    Q_a_s = model(state)
+    Q_expected = Q_a_s.gather(1, action)
+
+    bellmann_error = F.mse_loss(Q_expected, Q_targets)
+
+    return bellmann_error
+
+
 def compute_td_loss_transformer_finetune(model, batch, gamma, src_mask, padding_idx):
     states, rewards, next_states, dones = batch
 

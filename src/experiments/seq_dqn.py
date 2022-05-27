@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 import time
 import torch
 from training.progressbar import tqdm
-from training.losses import compute_td_loss
+from training.losses import compute_td_loss_target
 from training.metrics import ndcg_rewards
-from training.utils import t2d, seed_all, log_metrics
+from training.utils import t2d, seed_all, log_metrics, soft_update
 from training.predictions import direct_predict, prepare_true_matrix_rewards
 from training.checkpoint import CheckpointManager, make_checkpoint
 from models.seq_dqns import SeqDQN
@@ -19,7 +19,7 @@ import pickle
 
 
 TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f}"
-TEST_METRICS_TEMPLATE_STR = "loss - {:.3f} direct_NDCG@100 - {:.3f}"
+TEST_METRICS_TEMPLATE_STR = "direct_NDCG@100 - {:.3f}"
 
 
 def get_loaders(
@@ -66,12 +66,14 @@ def get_loaders(
 
 def train_fn(
     model,
+    target_model,
     loader,
     device,
     optimizer,
     gamma=0.9,
     scheduler=None,
     accumulation_steps=1,
+    soft_tau=1e-3,
 ):
     model.train()
 
@@ -84,8 +86,8 @@ def train_fn(
         for idx, batch in enumerate(loader):
             state, action, reward, next_state, done = t2d(batch, device)
             optimizer.zero_grad()
-            loss = compute_td_loss(
-                model, state, action, reward, next_state, done, gamma
+            loss = compute_td_loss_target(
+                model, target_model, state, action, reward, next_state, done, gamma
             )
             metrics["loss"] += loss.detach().item()
 
@@ -101,6 +103,8 @@ def train_fn(
                 optimizer.step()
                 if scheduler is not None:
                     scheduler.step()
+            
+            soft_update(target_model, model, soft_tau)
 
     for k in metrics.keys():
         metrics[k] /= n_batches
@@ -110,10 +114,7 @@ def train_fn(
 
 @torch.no_grad()
 def valid_fn(model, loader, device, items_n, gamma=0.9):
-    model.eval()
-
     metrics = {
-        "loss": 0.0,
         "direct_NDCG@100": 0.0,
     }
     n_batches = len(loader)
@@ -121,12 +122,8 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
     with tqdm(total=n_batches, desc="valid") as progress:
         for idx, batch in enumerate(loader):
             loss_batch, trs, tes, reward_tes = batch
-            state, action, reward, next_state, done = t2d(loss_batch, device)
-
-            loss = compute_td_loss(
-                model, state, action, reward, next_state, done, gamma
-            )
-            metrics["loss"] += loss.detach().item()
+            state = loss_batch[0]
+            state = state.to(device)
 
             direct_prediction = direct_predict(model, state, trs=trs)
             true = prepare_true_matrix_rewards(tes, reward_tes, items_n, device)
@@ -135,7 +132,6 @@ def valid_fn(model, loader, device, items_n, gamma=0.9):
 
             progress.set_postfix_str(
                 TEST_METRICS_TEMPLATE_STR.format(
-                    metrics["loss"] / (idx + 1),
                     metrics["direct_NDCG@100"] / (idx + 1),
                 )
             )
@@ -199,8 +195,15 @@ def experiment(
         max_tr_size=max_tr_size,
     )
     print("Data is loaded succesfully")
+
     model = SeqDQN(**model_config["args"])
+    target_model = SeqDQN(**model_config["args"])
     model.to(device)
+    target_model.to(device)
+    target_model.eval()
+
+    soft_update(target_model, model, 1.0)
+    
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     scheduler = None
     print("Training...")
@@ -211,6 +214,7 @@ def experiment(
 
         train_metrics = train_fn(
             model,
+            target_model,
             train_loader,
             device,
             optimizer,
@@ -220,7 +224,7 @@ def experiment(
         log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
-            model,
+            target_model,
             valid_loader,
             device,
             items_n=action_n,
@@ -233,7 +237,7 @@ def experiment(
             epoch=epoch,
             checkpoint=make_checkpoint(
                 epoch,
-                model,
+                target_model,
                 optimizer,
                 scheduler,
                 model_configuration=model_config,
