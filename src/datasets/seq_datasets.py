@@ -18,8 +18,8 @@ class SeqDatasetTrain(Dataset):
         done = torch.zeros(count_w.sum(0), dtype=torch.int)
         done[cumsum_count_w - 1] = 1
 
-        self.sequences = np.array(sequences)
-        self.rewards = np.array(rewards)
+        self.sequences = np.array(sequences, dtype=object)
+        self.rewards = np.array(rewards, dtype=object)
         self.done = done
         self.seq_indexes = np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0)
         self.cumsum_count_w = cumsum_count_w
