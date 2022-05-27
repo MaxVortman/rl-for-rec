@@ -21,13 +21,11 @@ class SeqDatasetTrain(Dataset):
         self.sequences = sequences
         self.rewards = rewards
         self.done = done
-        self.seq_indexes = list(
-            np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0)
-        )
-        self.cumsum_count_w = list(cumsum_count_w)
+        self.seq_indexes = np.concatenate([np.repeat(i, c) for i, c in enumerate(count_w)], axis=0)
+        self.cumsum_count_w = cumsum_count_w
         self.min_tr_size = min_tr_size
         self.max_tr_size = max_tr_size
-        self.count_w = list(count_w)
+        self.count_w = count_w
 
     def __len__(self) -> int:
         return self.done.size(0)
