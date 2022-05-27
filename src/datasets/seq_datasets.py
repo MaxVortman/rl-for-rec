@@ -32,7 +32,7 @@ class SeqDatasetTrain(Dataset):
 
     def __getitem__(self, index: int):
         seq_index = self.seq_indexes[index]
-        full_seq = np.array(self.sequences[seq_index])
+        full_seq = self.sequences[seq_index]
         partition_i = index - (self.cumsum_count_w[seq_index] - self.count_w[seq_index])
 
         seq = full_seq[: partition_i + self.min_tr_size + 1]
