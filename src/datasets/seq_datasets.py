@@ -48,8 +48,8 @@ class SeqDatasetTrain(Dataset):
 
         return (
             state,
-            torch.tensor(action),
-            torch.tensor(reward),
+            action,
+            reward,
             next_state,
             self.done[index],
         )
@@ -167,8 +167,8 @@ class SeqDatasetTestCollator:
 
         loss_batch = (
             states,
-            torch.stack(actions),
-            torch.stack(rewards),
+            torch.tensor(actions),
+            torch.tensor(rewards),
             next_states,
             torch.stack(dones),
         )
