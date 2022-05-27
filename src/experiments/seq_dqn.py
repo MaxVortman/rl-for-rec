@@ -113,7 +113,9 @@ def train_fn(
 
 
 @torch.no_grad()
-def valid_fn(model, loader, device, items_n, gamma=0.9):
+def valid_fn(model, loader, device, items_n):
+    model.eval()
+
     metrics = {
         "direct_NDCG@100": 0.0,
     }
@@ -200,7 +202,6 @@ def experiment(
     target_model = SeqDQN(**model_config["args"])
     model.to(device)
     target_model.to(device)
-    target_model.eval()
 
     soft_update(target_model, model, 1.0)
     
@@ -224,7 +225,7 @@ def experiment(
         log_metrics(train_metrics, "Train")
 
         valid_metrics = valid_fn(
-            target_model,
+            model,
             valid_loader,
             device,
             items_n=action_n,
@@ -237,7 +238,7 @@ def experiment(
             epoch=epoch,
             checkpoint=make_checkpoint(
                 epoch,
-                target_model,
+                model,
                 optimizer,
                 scheduler,
                 model_configuration=model_config,
