@@ -45,6 +45,7 @@ def get_loaders(
             max_size=max_tr_size, padding_idx=padding_idx
         ),
         num_workers=num_workers,
+        prefetch_factor=4,
     )
 
     valid_dataset = SeqDatasetTest(

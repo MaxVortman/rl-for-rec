@@ -44,12 +44,12 @@ class SeqDatasetTrain(Dataset):
         next_state = seq_tr[1:]
         action = seq_tr[-1]
 
-        # reward = self.rewards[seq_index][partition_i + self.min_tr_size]
-
+        reward = self.rewards[seq_index][partition_i + self.min_tr_size]
+    
         return (
             state,
             action,
-            1,
+            reward,
             next_state,
             self.done[index],
         )
