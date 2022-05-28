@@ -108,7 +108,7 @@ def train_fn(
             loss.backward()
 
             if (idx + 1) % accumulation_steps == 0:
-                clip_grad_norm_(model, 1)
+                clip_grad_norm_(model.parameters(), 1)
                 optimizer.step()
                 if scheduler is not None:
                     scheduler.step()
