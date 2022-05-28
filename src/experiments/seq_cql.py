@@ -89,7 +89,7 @@ def train_fn(
         for idx, batch in enumerate(loader):
             state, action, reward, next_state, done = t2d(batch, device)
             optimizer.zero_grad()
-            loss, td_loss, cql_loss = compute_cql_loss(
+            loss, cql_loss, td_loss = compute_cql_loss(
                 model, target_model, state, action, reward, next_state, done, gamma
             )
             metrics["loss"] += loss.detach().item()
