@@ -168,6 +168,7 @@ def experiment(
     hidden_lstm_size: int = 64,
     hidden_gru_size: int = 64,
     dropout_rate: float = 0.1,
+    soft_tau: float = 1e-3,
 ):
     with open(prepared_data_path + "/unique_sid.txt", "r") as f:
         action_n = len(f.readlines())
@@ -229,6 +230,7 @@ def experiment(
             device,
             optimizer,
             scheduler=scheduler,
+            soft_tau=soft_tau,
         )
 
         log_metrics(train_metrics, "Train")
