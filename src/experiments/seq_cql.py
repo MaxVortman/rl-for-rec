@@ -7,10 +7,11 @@ from datasets.seq_datasets import (
 from torch.utils.data import DataLoader
 import time
 import torch
+from torch.nn.utils import clip_grad_norm_
 from training.progressbar import tqdm
-from training.losses import compute_td_loss
+from training.losses import compute_cql_loss
 from training.metrics import ndcg_rewards
-from training.utils import t2d, seed_all, log_metrics
+from training.utils import t2d, seed_all, log_metrics, soft_update
 from training.predictions import direct_predict, prepare_true_matrix_rewards
 from training.checkpoint import CheckpointManager, make_checkpoint
 from models.seq_dqns import SeqDQN
@@ -18,7 +19,7 @@ import torch.optim as optim
 import pickle
 
 
-TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f}"
+TRAIN_METRICS_TEMPLATE_STR = "loss - {:.3f} td_loss - {:.3f} cql_loss - {:.3f}"
 TEST_METRICS_TEMPLATE_STR = "direct_NDCG@100 - {:.3f}"
 
 
@@ -66,17 +67,21 @@ def get_loaders(
 
 def train_fn(
     model,
+    target_model,
     loader,
     device,
     optimizer,
     gamma=0.9,
     scheduler=None,
     accumulation_steps=1,
+    soft_tau=1e-3,
 ):
     model.train()
 
     metrics = {
         "loss": 0.0,
+        "td_loss": 0.0,
+        "cql_loss": 0.0,
     }
     n_batches = len(loader)
 
@@ -84,23 +89,31 @@ def train_fn(
         for idx, batch in enumerate(loader):
             state, action, reward, next_state, done = t2d(batch, device)
             optimizer.zero_grad()
-            loss = compute_td_loss(
-                model, state, action, reward, next_state, done, gamma
+            loss, td_loss, cql_loss = compute_cql_loss(
+                model, target_model, state, action, reward, next_state, done, gamma
             )
             metrics["loss"] += loss.detach().item()
+            metrics["td_loss"] += td_loss.detach().item()
+            metrics["cql_loss"] += cql_loss.detach().item()
 
             progress.set_postfix_str(
                 TRAIN_METRICS_TEMPLATE_STR.format(
                     metrics["loss"] / (idx + 1),
+                    metrics["td_loss"] / (idx + 1),
+                    metrics["cql_loss"] / (idx + 1),
                 )
             )
             progress.update(1)
 
             loss.backward()
+
             if (idx + 1) % accumulation_steps == 0:
+                clip_grad_norm_(model, 1)
                 optimizer.step()
                 if scheduler is not None:
                     scheduler.step()
+
+            soft_update(target_model, model, soft_tau)
 
     for k in metrics.keys():
         metrics[k] /= n_batches
@@ -195,7 +208,11 @@ def experiment(
     print("Data is loaded succesfully")
 
     model = SeqDQN(**model_config["args"])
+    target_model = SeqDQN(**model_config["args"])
     model.to(device)
+    target_model.to(device)
+
+    soft_update(target_model, model, 1.0)
     
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     scheduler = None
@@ -207,6 +224,7 @@ def experiment(
 
         train_metrics = train_fn(
             model,
+            target_model,
             train_loader,
             device,
             optimizer,
