@@ -13,12 +13,9 @@ from training.checkpoint import CheckpointManager, make_checkpoint, load_embeddi
 from training.predictions import direct_predict_transformer, prepare_true_matrix_rewards
 from training.metrics import ndcg_rewards
 from models.transformer import (
-    DqnTransformerEmbedding,
-    TransformerEmbeddingFreeze,
     DqnFreezeTransformer,
     TransformerEmbedding,
     generate_square_subsequent_mask,
-    create_pad_mask,
 )
 from training.losses import compute_td_loss_transformer_finetune
 import torch.optim as optim
@@ -228,7 +225,7 @@ def experiment(
     )
     print("Data is loaded succesfully")
     transformer_embedding = load_embedding(
-        checkpoint_dir=checkpoint_dir, model_class=TransformerEmbeddingFreeze
+        checkpoint_dir=checkpoint_dir, model_class=TransformerEmbedding
     )
     model = DqnFreezeTransformer(
         transformer_embedding=transformer_embedding,
