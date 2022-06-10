@@ -7,7 +7,7 @@ import torch
 from training.progressbar import tqdm
 from training.utils import t2d, log_metrics
 from training.checkpoint import load_checkpoint, load_model_config
-from training.predictions import direct_predict_transformer, prepare_true_matrix_rewards
+from training.predictions import direct_predict_transformer, prepare_true_matrix_rewards, direct_predict
 from training.metrics import ndcg_lib, recall_lib
 from models.transformer import (
     TransformerModel,
@@ -15,6 +15,7 @@ from models.transformer import (
     DqnFreezeTransformer,
     generate_square_subsequent_mask,
 )
+from models.seq_dqns import SeqDQN
 import pickle
 import os
 import pandas as pd
@@ -82,9 +83,12 @@ def test_fn(
             tr_last_ind = tr_last_ind.to(device)
 
             states = loss_batch[0]
-            direct_prediction = direct_predict_transformer(
-                model, states, src_mask, padding_idx, tr_last_ind, trs=trs
-            )
+            if isinstance(model, (TransformerModel, DqnFreezeTransformer)):
+                direct_prediction = direct_predict_transformer(
+                    model, states, src_mask, padding_idx, tr_last_ind, trs=trs
+                )
+            else: 
+                direct_prediction = direct_predict(model, states, trs=trs)
 
             true = prepare_true_matrix_rewards(tes, rewards_tes, items_n, device)
             direct_ndcg100, direct_ndcg10 = ndcg_lib([100, 10], true, direct_prediction)
@@ -163,12 +167,32 @@ def transformer_finetuned_test(
     return test_metrics
 
 
+def seq_test(
+    loader, device, seq_checkpoint_dir, max_size, padding_idx, items_n
+):
+    model = load_model_config(seq_checkpoint_dir, SeqDQN)
+    best_path = os.path.join(seq_checkpoint_dir, "best.pth")
+    load_checkpoint(best_path, model)
+    model.to(device)
+    test_metrics = test_fn(
+        model,
+        loader,
+        device,
+        max_size=max_size,
+        padding_idx=padding_idx,
+        items_n=items_n,
+    )
+    log_metrics(test_metrics, "Test")
+    return test_metrics
+
+
 def experiment(
     device,
     prepared_data_path,
     logdir,
     finetuned_checkpoint_dirs=None,
     transformer_checkpoint_dirs=None,
+    seq_checkpoint_dirs=None,
     num_workers=0,
     batch_size=256,
     max_size=512,
@@ -204,6 +228,14 @@ def experiment(
                 test_loader, device, emb_dir, trans_dir, max_size, padding_idx, action_n
             )
             test_metrics["model"] = trans_dir
+            metrics.append(test_metrics)
+
+    if seq_checkpoint_dirs:
+        for dir in seq_checkpoint_dirs:
+            test_metrics = seq_test(
+                test_loader, device, dir, max_size, padding_idx, action_n
+            )
+            test_metrics["model"] = dir
             metrics.append(test_metrics)
 
     if metrics:
