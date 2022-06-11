@@ -278,7 +278,6 @@ def experiment(
                 model,
                 optimizer,
                 scheduler,
-                model_configuration=model_config,
                 metrics={"train": train_metrics, "valid": valid_metrics},
                 epoch_start_time=epoch_start_time,
             ),
