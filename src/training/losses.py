@@ -114,25 +114,25 @@ def ddpg_loss(
     return policy_loss, value_loss
 
 
-def compute_cql_loss_transformer(model, batch, gamma, src_mask, padding_idx, alpha):
-    td_loss = compute_td_loss_transformer_finetune(
-        model, batch, gamma, src_mask, padding_idx
-    )
+def compute_cql_loss_transformer(model, target_model, batch, gamma, src_mask, padding_idx):
+    states, rewards, next_states, dones = batch
 
-    states = batch[0]
     pad_mask = create_pad_mask(matrix=states, pad_token=padding_idx)
+    pad_mask_next = create_pad_mask(matrix=next_states, pad_token=padding_idx)
 
-    q_values_state_d = model(states, src_mask=src_mask, src_key_padding_mask=pad_mask)
-    q_value_state_d_action_p = q_values_state_d.max(1)[0]
-    q_value_state_d_action_d = q_values_state_d.gather(1, states.unsqueeze(1)).squeeze(
-        1
-    )
+    with torch.no_grad():
+        Q_targets_next = target_model(next_states, src_mask=src_mask, src_key_padding_mask=pad_mask_next).detach().max(1)[0]
+        Q_targets = rewards + gamma * Q_targets_next * (1 - dones)
+    Q_a_s = model(states, src_mask=src_mask, src_key_padding_mask=pad_mask)
+    Q_expected = Q_a_s.gather(1, next_states.unsqueeze(1)).squeeze(1)
 
-    loss = td_loss + alpha * (
-        q_value_state_d_action_p.mean() - q_value_state_d_action_d.mean()
-    )
+    bellmann_error = F.mse_loss(Q_expected, Q_targets)
 
-    return loss
+    cql1_loss = torch.logsumexp(Q_a_s, dim=1).mean() - Q_a_s.mean()
+
+    q1_loss = cql1_loss + 0.5 * bellmann_error
+
+    return q1_loss, cql1_loss, bellmann_error
 
 
 def compute_td_ce_loss_transformer(model, batch, gamma, src_mask, padding_idx, alpha):
